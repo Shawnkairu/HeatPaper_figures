@@ -6,3 +6,5 @@ xarray
 scipy
 matplotlib
 statsmodels
+netCDF4
+h5netcdf

@@ -5,6 +5,13 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 import os
 import numpy as np
+import xarray as xr  # ADD THIS
+from scipy import stats
+from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.colors import LinearSegmentedColormap
+import matplotlib.patheffects as path_effects
 
 # Helper function for date-specific percentile calculation
 def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
@@ -44,6 +51,443 @@ def identify_waves(df, column_name='extreme_event', min_consecutive=2):
     df['wave'] = df.groupby('wave_id')[column_name].transform('sum') >= min_consecutive
     df['in_wave'] = df[column_name] & df['wave']
     return df
+
+def apply_loess_smoothing(x, y, frac=0.2):
+    """
+    Apply LOESS (Locally Weighted Scatterplot Smoothing) to data
+    
+    Args:
+        x: x values (e.g., years)
+        y: y values (e.g., counts)
+        frac: fraction of data points to use for smoothing (default 0.2, same as R's f=1/5)
+    
+    Returns:
+        smoothed y values
+    """
+    from scipy.signal import savgol_filter
+    from statsmodels.nonparametric.smoothers_lowess import lowess
+    
+    # Remove NaN values
+    mask = ~np.isnan(y)
+    x_clean = np.array(x)[mask]
+    y_clean = np.array(y)[mask]
+    
+    if len(x_clean) < 3:
+        return y
+    
+    # Apply LOESS smoothing
+    smoothed = lowess(y_clean, x_clean, frac=frac, return_sorted=False)
+    
+    # Create full array with original length, inserting NaN where data was missing
+    result = np.full(len(y), np.nan)
+    result[mask] = smoothed
+    
+    return result
+
+# ============================================================================
+# ERA5 DATA PROCESSING FUNCTIONS
+# ============================================================================
+
+# ============================================================================
+# ERA5 DATA PROCESSING FUNCTIONS
+# ============================================================================
+
+def process_era5_data(era5_file='era5_temperature_nc_1971_2021.nc'):
+    """
+    Process ERA5 NetCDF and load temperature data
+    """
+    try:
+        # Open dataset
+        ds = xr.open_dataset(era5_file)
+        
+        # Get temperature (t2m) and convert K to °F
+        temp = ds['t2m']
+        temp_f = (temp - 273.15) * 9/5 + 32
+        
+        # Create a copy with proper time handling
+        temp_f = temp_f.copy()
+        
+        # Extract year and month from valid_time and add as new coordinates
+        years = temp_f['valid_time'].dt.year.values
+        months = temp_f['valid_time'].dt.month.values
+        
+        # Add year and month as coordinates (not dimensions)
+        temp_f.coords['year'] = ('valid_time', years)
+        temp_f.coords['month'] = ('valid_time', months)
+        
+        return temp_f, ds
+        
+    except Exception as e:
+        st.error(f"Error loading ERA5 data: {str(e)}")
+        st.code(f"""
+Error details:
+{type(e).__name__}: {str(e)}
+
+Traceback:
+{__import__('traceback').format_exc()}
+        """)
+        return None, None
+
+
+def calculate_temperature_trends(temp_data, months=[6,7,8]):
+    """
+    Calculate temperature change (slope) for each grid cell
+    
+    Args:
+        temp_data: xarray DataArray with temperature
+        months: list of months to analyze (default: summer [6,7,8])
+    
+    Returns:
+        lats, lons, slopes (°F/decade), r_squared, p_values
+    """
+    try:
+        # Create a boolean mask for the months we want
+        month_mask = temp_data['month'].isin(months)
+        
+        # Filter using the mask
+        seasonal_temp = temp_data.where(month_mask, drop=True)
+        
+        # Calculate annual seasonal averages
+        # Group by year and take mean across valid_time dimension
+        annual_avg = seasonal_temp.groupby('year').mean(dim='valid_time')
+        
+        # Get coordinates
+        lats = annual_avg.latitude.values
+        lons = annual_avg.longitude.values
+        years = annual_avg.year.values
+        
+        # Initialize arrays
+        slopes = np.full((len(lats), len(lons)), np.nan)
+        r_squared = np.full((len(lats), len(lons)), np.nan)
+        p_values = np.full((len(lats), len(lons)), np.nan)
+        
+        # Calculate slopes with progress indicator
+        progress_bar = st.progress(0)
+        total_cells = len(lats) * len(lons)
+        processed = 0
+        
+        for i in range(len(lats)):
+            for j in range(len(lons)):
+                # Get temperature time series for this grid cell
+                temps = annual_avg.isel(latitude=i, longitude=j).values
+                
+                # Only calculate if we have valid data
+                if not np.isnan(temps).any() and len(temps) > 2:
+                    try:
+                        slope, intercept, r_val, p_val, std_err = stats.linregress(years, temps)
+                        slopes[i, j] = slope * 10  # Convert to °F per decade
+                        r_squared[i, j] = r_val ** 2
+                        p_values[i, j] = p_val
+                    except:
+                        pass
+                
+                processed += 1
+                if processed % 100 == 0:
+                    progress_bar.progress(processed / total_cells)
+        
+        progress_bar.progress(1.0)
+        
+        return lats, lons, slopes, r_squared, p_values
+    
+    except Exception as e:
+        st.error(f"Error calculating trends: {str(e)}")
+        st.code(f"""
+Error details:
+{type(e).__name__}: {str(e)}
+
+Traceback:
+{__import__('traceback').format_exc()}
+        """)
+        return None, None, None, None, None
+
+
+def get_temperature_snapshot(temp_data, year=2020, months=[6,7,8]):
+    """
+    Get average temperature for a specific year and season
+    
+    Args:
+        temp_data: xarray DataArray with temperature
+        year: specific year to analyze
+        months: list of months for the season
+    
+    Returns:
+        lats, lons, average temperature values
+    """
+    try:
+        # Create boolean masks
+        year_mask = temp_data['year'] == year
+        month_mask = temp_data['month'].isin(months)
+        
+        # Apply both masks
+        subset = temp_data.where(year_mask & month_mask, drop=True)
+        
+        if len(subset['valid_time']) == 0:
+            st.warning(f"No data found for year {year}, months {months}")
+            return None, None, None
+        
+        # Average over the valid_time dimension
+        avg_temp = subset.mean(dim='valid_time')
+        
+        # Get coordinates
+        lats = avg_temp.latitude.values
+        lons = avg_temp.longitude.values
+        temps = avg_temp.values
+        
+        return lats, lons, temps
+    
+    except Exception as e:
+        st.error(f"Error getting snapshot: {str(e)}")
+        st.code(f"""
+Error details:
+{type(e).__name__}: {str(e)}
+
+Traceback:
+{__import__('traceback').format_exc()}
+        """)
+        return None, None, None
+
+def interpolate_grid(lats, lons, data, factor=3):
+    """
+    Interpolate data to a finer grid for smoother visualization
+    
+    Args:
+        lats, lons: original grid coordinates
+        data: 2D array of values
+        factor: upsampling factor (3 = 3x more resolution)
+    
+    Returns:
+        new_lats, new_lons, interpolated_data
+    """
+    from scipy.interpolate import griddata
+    
+    # Create finer grid
+    lat_fine = np.linspace(lats.min(), lats.max(), len(lats) * factor)
+    lon_fine = np.linspace(lons.min(), lons.max(), len(lons) * factor)
+    lon_grid, lat_grid = np.meshgrid(lon_fine, lat_fine)
+    
+    # Original grid points
+    lons_mesh, lats_mesh = np.meshgrid(lons, lats)
+    points = np.column_stack([lats_mesh.ravel(), lons_mesh.ravel()])
+    values = data.ravel()
+    
+    # Remove NaN values
+    mask = ~np.isnan(values)
+    points = points[mask]
+    values = values[mask]
+    
+    # Interpolate
+    data_fine = griddata(points, values, (lat_grid, lon_grid), method='cubic')
+    
+    return lat_fine, lon_fine, data_fine
+
+def create_matplotlib_heatmap_inline(lats_mesh, lons_mesh, data, station_coords=None,
+                                      title='', cbar_label='', cmap='RdBu_r',
+                                      vmin=None, vmax=None, diverging=False, dpi=150):
+    """
+    Create a publication-quality matplotlib heatmap with state borders
+    
+    Args:
+        lats_mesh, lons_mesh: 2D meshgrids of coordinates
+        data: 2D array of values to plot
+        station_coords: dict of {code: (lat, lon, name)} for stations (optional)
+        title: plot title
+        cbar_label: colorbar label
+        cmap: colormap name
+        vmin, vmax: colorbar limits (optional)
+        diverging: if True, center colorbar at 0
+        dpi: resolution for the figure
+    
+    Returns:
+        matplotlib figure object
+    """
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 8), dpi=dpi)
+    
+    # Handle diverging colormaps
+    if diverging and vmin is None and vmax is None:
+        abs_max = np.nanmax(np.abs(data))
+        vmin = -abs_max
+        vmax = abs_max
+    
+    # Create contour plot
+    contour = ax.contourf(lons_mesh, lats_mesh, data, 
+                          levels=50, cmap=cmap, 
+                          vmin=vmin, vmax=vmax)
+    
+    # Add colorbar
+    cbar = plt.colorbar(contour, ax=ax, orientation='vertical', 
+                        pad=0.02, fraction=0.046)
+    cbar.set_label(cbar_label, fontsize=11, weight='bold')
+    cbar.ax.tick_params(labelsize=10)
+    
+    # Add state borders
+    try:
+        import json
+        import urllib.request
+        
+        url = "https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json"
+        with urllib.request.urlopen(url, timeout=10) as response:
+            states = json.load(response)
+        
+        # Get data extent
+        lat_min, lat_max = np.nanmin(lats_mesh), np.nanmax(lats_mesh)
+        lon_min, lon_max = np.nanmin(lons_mesh), np.nanmax(lons_mesh)
+        
+        # Plot state borders
+        for feature in states['features']:
+            if feature['geometry']['type'] == 'Polygon':
+                coords = feature['geometry']['coordinates'][0]
+                lons = [c[0] for c in coords]
+                lats = [c[1] for c in coords]
+                
+                # Only plot if within data extent
+                if any(lat_min <= lat <= lat_max and lon_min <= lon <= lon_max 
+                       for lat, lon in zip(lats, lons)):
+                    ax.plot(lons, lats, 'k-', linewidth=0.8, alpha=0.6, zorder=3)
+            
+            elif feature['geometry']['type'] == 'MultiPolygon':
+                for polygon in feature['geometry']['coordinates']:
+                    coords = polygon[0]
+                    lons = [c[0] for c in coords]
+                    lats = [c[1] for c in coords]
+                    
+                    if any(lat_min <= lat <= lat_max and lon_min <= lon <= lon_max 
+                           for lat, lon in zip(lats, lons)):
+                        ax.plot(lons, lats, 'k-', linewidth=0.8, alpha=0.6, zorder=3)
+    except:
+        pass  # Continue without borders if download fails
+    
+    # Add stations if provided
+    if station_coords:
+        for code, (lat, lon, name) in station_coords.items():
+            ax.plot(lon, lat, 'ko', markersize=8, markeredgecolor='white', 
+                    markeredgewidth=2, zorder=4)
+            
+            # Add text with white outline
+            txt = ax.text(lon, lat + 0.15, name, fontsize=9, ha='center', 
+                         weight='bold', zorder=5)
+            txt.set_path_effects([path_effects.Stroke(linewidth=3, foreground='white'),
+                                  path_effects.Normal()])
+    
+    # Format axes
+    ax.set_xlabel('Longitude', fontsize=12, weight='bold')
+    ax.set_ylabel('Latitude', fontsize=12, weight='bold')
+    ax.set_title(title, fontsize=14, weight='bold', pad=15)
+    ax.tick_params(labelsize=10)
+    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+    
+    # Set aspect ratio and limits
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlim([np.nanmin(lons_mesh), np.nanmax(lons_mesh)])
+    ax.set_ylim([np.nanmin(lats_mesh), np.nanmax(lats_mesh)])
+    
+    plt.tight_layout()
+    
+    return fig
+
+def add_state_borders(fig, lat_range=None, lon_range=None):
+    """
+    Add US state borders to a plotly figure, clipped to the data extent
+    
+    Args:
+        fig: plotly figure object to add borders to
+        lat_range: tuple of (min_lat, max_lat) to clip borders
+        lon_range: tuple of (min_lon, max_lon) to clip borders
+    
+    Returns:
+        fig: modified figure with state borders
+    """
+    import json
+    import urllib.request
+    
+    try:
+        # Load US states GeoJSON
+        url = 'https://raw.githubusercontent.com/PublicaMundi/MappingAPI/master/data/geojson/us-states.json'
+        with urllib.request.urlopen(url) as response:
+            states_geojson = json.load(response)
+        
+        # Focus on Southeast states around North Carolina
+        target_states = ['North Carolina', 'South Carolina', 'Virginia', 
+                        'Tennessee', 'Georgia', 'West Virginia', 'Kentucky',
+                        'Alabama', 'Maryland', 'Delaware', 'Florida']
+        
+        # If ranges not provided, use reasonable defaults for NC region
+        if lat_range is None:
+            lat_range = (24, 40)
+        if lon_range is None:
+            lon_range = (-93, -75)
+        
+        min_lat, max_lat = lat_range
+        min_lon, max_lon = lon_range
+        
+        def clip_point(lon, lat):
+            """Check if point is within bounds"""
+            return (min_lon <= lon <= max_lon and min_lat <= lat <= max_lat)
+        
+        # Extract and plot borders for each state
+        for feature in states_geojson['features']:
+            state_name = feature['properties']['name']
+            
+            if state_name in target_states:
+                geometry = feature['geometry']
+                
+                if geometry['type'] == 'Polygon':
+                    coords_list = [geometry['coordinates']]
+                elif geometry['type'] == 'MultiPolygon':
+                    coords_list = geometry['coordinates']
+                else:
+                    continue
+                
+                # Plot each polygon, but only segments within bounds
+                for coords in coords_list:
+                    for ring in coords:
+                        # Filter coordinates to only those within bounds
+                        lons_full = [coord[0] for coord in ring]
+                        lats_full = [coord[1] for coord in ring]
+                        
+                        # Create line segments, only keeping those in bounds
+                        lons_clipped = []
+                        lats_clipped = []
+                        
+                        for i in range(len(lons_full)):
+                            lon, lat = lons_full[i], lats_full[i]
+                            
+                            # Check if point or next point is in bounds
+                            in_bounds = clip_point(lon, lat)
+                            
+                            if in_bounds:
+                                lons_clipped.append(lon)
+                                lats_clipped.append(lat)
+                            else:
+                                # If we have accumulated points, plot them
+                                if len(lons_clipped) > 1:
+                                    fig.add_trace(go.Scatter(
+                                        x=lons_clipped,
+                                        y=lats_clipped,
+                                        mode='lines',
+                                        line=dict(color='black', width=1),
+                                        showlegend=False,
+                                        hoverinfo='skip'
+                                    ))
+                                lons_clipped = []
+                                lats_clipped = []
+                        
+                        # Plot any remaining segments
+                        if len(lons_clipped) > 1:
+                            fig.add_trace(go.Scatter(
+                                x=lons_clipped,
+                                y=lats_clipped,
+                                mode='lines',
+                                line=dict(color='black', width=1),
+                                showlegend=False,
+                                hoverinfo='skip'
+                            ))
+        
+        return fig
+        
+    except Exception as e:
+        st.warning(f"Could not load state borders: {e}")
+        return fig
 
 # Page configuration
 st.set_page_config(
@@ -257,12 +701,13 @@ else:  # Individual Station view
         )
 
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
     "WWA Comparison",
-    "Additional Analysis"
+    "Additional Analysis",
+    "Regional Heatmap"
 ])
 
 # TAB 1: METHODOLOGY
@@ -625,30 +1070,38 @@ with tab2:
             row = idx // 3 + 1
             col = idx % 3 + 1
             
-            station_data = extreme_heat_df[extreme_heat_df['station'] == station]
+            station_data = extreme_heat_df[extreme_heat_df['station'] == station].sort_values('year')
             
-            # Max HI (darker red) - with smoothing
+            # Apply LOESS smoothing (frac=0.2 matches R's f=1/5)
+            max_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['max_extreme'].values, 
+                                                  frac=0.2)
+            min_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['min_extreme'].values, 
+                                                  frac=0.2)
+            
+            # Max HI (darker red) - LOESS smoothed
             fig_heat.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['max_extreme'],
+                    y=max_smoothed,
                     name="Max HI > 98p", 
                     mode='lines', 
-                    line=dict(color='darkred', width=2.5, shape='spline'),
+                    line=dict(color='darkred', width=2.5),
                     legendgroup="heat_max", 
                     showlegend=(idx==0)
                 ),
                 row=row, col=col
             )
             
-            # Min HI (light orange) - with smoothing
+            # Min HI (orange) - LOESS smoothed
             fig_heat.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['min_extreme'],
+                    y=min_smoothed,
                     name="Min HI > 98p", 
                     mode='lines', 
-                    line=dict(color='#FFA500', width=2.5, shape='spline'),
+                    line=dict(color='#FFA500', width=2.5),
                     legendgroup="heat_min", 
                     showlegend=(idx==0)
                 ),
@@ -743,30 +1196,38 @@ with tab2:
             row = idx // 3 + 1
             col = idx % 3 + 1
             
-            station_data = extreme_cold_df[extreme_cold_df['station'] == station]
+            station_data = extreme_cold_df[extreme_cold_df['station'] == station].sort_values('year')
             
-            # Max HI (navy blue) - with smoothing
+            # Apply LOESS smoothing (frac=0.2 matches R's f=1/5)
+            max_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['max_extreme'].values, 
+                                                  frac=0.2)
+            min_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['min_extreme'].values, 
+                                                  frac=0.2)
+            
+            # Max HI (navy blue) - LOESS smoothed
             fig_cold.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['max_extreme'],
+                    y=max_smoothed,
                     name="Max HI < 2p", 
                     mode='lines', 
-                    line=dict(color='navy', width=2.5, shape='spline'),
+                    line=dict(color='navy', width=2.5),
                     legendgroup="cold_max", 
                     showlegend=(idx==0)
                 ),
                 row=row, col=col
             )
             
-            # Min HI (light blue) - with smoothing
+            # Min HI (light blue) - LOESS smoothed
             fig_cold.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['min_extreme'],
+                    y=min_smoothed,
                     name="Min HI < 2p", 
                     mode='lines', 
-                    line=dict(color='skyblue', width=2.5, shape='spline'),
+                    line=dict(color='skyblue', width=2.5),
                     legendgroup="cold_min", 
                     showlegend=(idx==0)
                 ),
@@ -882,30 +1343,38 @@ with tab3:
             row = idx // 3 + 1
             col = idx % 3 + 1
             
-            station_data = heatwave_df[heatwave_df['station'] == station]
+            station_data = heatwave_df[heatwave_df['station'] == station].sort_values('year')
             
-            # HI-max Heatwaves (red) - SMOOTH
+            # Apply LOESS smoothing (frac=0.2 matches R's f=1/5)
+            max_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['heatwave_max'].values, 
+                                                  frac=0.2)
+            min_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['heatwave_min'].values, 
+                                                  frac=0.2)
+            
+            # HI-max Heatwaves (red) - LOESS smoothed
             fig_heatwaves.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['heatwave_max'],
+                    y=max_smoothed,
                     name="HI-max Heatwaves", 
                     mode='lines', 
-                    line=dict(color='red', width=2.5, shape='spline'),
+                    line=dict(color='red', width=2.5),
                     legendgroup="heatwave_max", 
                     showlegend=(idx==0)
                 ),
                 row=row, col=col
             )
             
-            # HI-min Heatwaves (orange) - SMOOTH
+            # HI-min Heatwaves (orange) - LOESS smoothed
             fig_heatwaves.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['heatwave_min'],
+                    y=min_smoothed,
                     name="HI-min Heatwaves", 
                     mode='lines', 
-                    line=dict(color='orange', width=2.5, shape='spline'),
+                    line=dict(color='orange', width=2.5),
                     legendgroup="heatwave_min", 
                     showlegend=(idx==0)
                 ),
@@ -1013,30 +1482,38 @@ with tab3:
             row = idx // 3 + 1
             col = idx % 3 + 1
             
-            station_data = coldwave_df[coldwave_df['station'] == station]
+            station_data = coldwave_df[coldwave_df['station'] == station].sort_values('year')
             
-            # HI-max Coldwaves (dark blue)
+            # Apply LOESS smoothing (frac=0.2 matches R's f=1/5)
+            max_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['coldwave_max'].values, 
+                                                  frac=0.2)
+            min_smoothed = apply_loess_smoothing(station_data['year'].values, 
+                                                  station_data['coldwave_min'].values, 
+                                                  frac=0.2)
+            
+            # HI-max Coldwaves (dark blue) - LOESS smoothed
             fig_coldwaves.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['coldwave_max'],
+                    y=max_smoothed,
                     name="HI-max Coldwaves", 
                     mode='lines', 
-                    line=dict(color='darkblue', width=2.5, shape='spline'),
+                    line=dict(color='darkblue', width=2.5),
                     legendgroup="coldwave_max", 
                     showlegend=(idx==0)
                 ),
                 row=row, col=col
             )
             
-            # HI-min Coldwaves (light blue)
+            # HI-min Coldwaves (light blue) - LOESS smoothed
             fig_coldwaves.add_trace(
                 go.Scatter(
                     x=station_data['year'], 
-                    y=station_data['coldwave_min'],
+                    y=min_smoothed,
                     name="HI-min Coldwaves", 
                     mode='lines', 
-                    line=dict(color='lightblue', width=2.5, shape='spline'),
+                    line=dict(color='lightblue', width=2.5),
                     legendgroup="coldwave_min", 
                     showlegend=(idx==0)
                 ),
@@ -1107,33 +1584,10 @@ with tab5:
     
     analysis_choice = st.selectbox(
         "Select Analysis Type:",
-        ["Temperature Distribution by Station", "Seasonal Patterns", "Decadal Trends", "Station Comparison"]
+        ["Seasonal Patterns", "Decadal Trends",]
     )
     
-    if analysis_choice == "Temperature Distribution by Station":
-        # Box plot
-        summer_data = []
-        for station in selected_stations:
-            df = dfs[station]
-            summer = df[(df['month'].isin([6, 7, 8])) & 
-                        (df['year'] >= year_range[0]) & 
-                        (df['year'] <= year_range[1])]
-            summer_data.append(summer[['station_name', 'heatindexmax2m']].dropna())
-        
-        combined = pd.concat(summer_data)
-        
-        fig_box = px.box(
-            combined,
-            x='station_name',
-            y='heatindexmax2m',
-            color='station_name',
-            title="Summer Heat Index Distribution by Station",
-            labels={'heatindexmax2m': 'Heat Index (°F)', 'station_name': 'Station'}
-        )
-        fig_box.update_layout(height=500, showlegend=False, template="plotly_white")
-        st.plotly_chart(fig_box, use_container_width=True, key="box_dist")
-    
-    elif analysis_choice == "Seasonal Patterns":
+    if analysis_choice == "Seasonal Patterns":
         # Heatmap of monthly averages
         monthly_data = []
         for station in selected_stations:
@@ -1168,7 +1622,7 @@ with tab5:
         )
         st.plotly_chart(fig_heat_monthly, use_container_width=True, key="seasonal_heatmap")
     
-    elif analysis_choice == "Decadal Trends":
+    else:
         st.markdown("### Temperature Change by Decade")
         
         for station in selected_stations:
@@ -1202,49 +1656,362 @@ with tab5:
                         f"{change:+.1f}°F",
                         delta=f"{(change/decade_avg.iloc[0]*100):+.1f}%"
                     )
-    
-    else:  # Station Comparison
-        st.markdown("### Geographic Comparison")
-        
-        # Average by region
-        regions = {
-            'Mountains': ['KAVL'],
-            'Piedmont': ['KGSO', 'KCLT', 'KRDU'],
-            'Coastal': ['KHSE', 'KILM']
-        }
-        
-        region_data = []
-        for region, stations in regions.items():
-            region_stations = [s for s in stations if s in selected_stations]
-            if region_stations:
-                dfs_region = [dfs[s] for s in region_stations]
-                combined_region = pd.concat(dfs_region)
-                summer = combined_region[combined_region['month'].isin([6,7,8])]
-                summer = summer[(summer['year'] >= year_range[0]) & (summer['year'] <= year_range[1])]
-                
-                avg_by_year = summer.groupby('year')['heatindexmax2m'].mean()
-                
-                for year, avg in avg_by_year.items():
-                    region_data.append({
-                        'Region': region,
-                        'Year': year,
-                        'Avg Heat Index': avg
-                    })
-        
-        if region_data:
-            region_df = pd.DataFrame(region_data)
-            
-            fig_region = px.line(
-                region_df,
-                x='Year',
-                y='Avg Heat Index',
-                color='Region',
-                title="Average Summer Heat Index by Geographic Region",
-                markers=True
-            )
-            fig_region.update_layout(height=500, template="plotly_white")
-            st.plotly_chart(fig_region, use_container_width=True, key="region_comparison")
 
+# TAB 6: REGIONAL HEATMAP (ERA5)
+with tab6:
+    st.header("Regional Temperature Analysis")
+
+    
+    # Check if ERA5 file exists
+    era5_file = 'era5_temperature_nc_1971_2021.nc'
+    
+    if not os.path.exists(era5_file):
+        st.warning(f"""
+        ### ERA5 Data Not Found
+        
+        To use this feature, please download ERA5 monthly temperature data:
+        
+        1. **Create account:** https://cds.climate.copernicus.eu/
+        2. **Download dataset:** Monthly 2m temperature (1971-2021)
+        3. **Region:** North America (lat: 24-40°N, lon: -92 to -75°E)
+        4. **Save as:** `{era5_file}` in the same directory as app.py
+        
+        **Approximate file size:** 200-500 MB
+        """)
+        
+        with st.expander("📖 View Download Code"):
+            st.code('''
+import cdsapi
+
+c = cdsapi.Client()
+
+c.retrieve(
+    'reanalysis-era5-single-levels-monthly-means',
+    {
+        'product_type': 'monthly_averaged_reanalysis',
+        'variable': '2m_temperature',
+        'year': [str(year) for year in range(1971, 2022)],
+        'month': [f'{m:02d}' for m in range(1, 13)],
+        'time': '00:00',
+        'area': [40, -92, 24, -75],  # N, W, S, E
+        'format': 'netcdf',
+    },
+    'era5_temperature_nc_1971_2021.nc'
+)
+            ''', language='python')
+        
+        st.stop()
+    
+    # Load ERA5 data
+    @st.cache_data
+    def load_era5_cached(file_path):
+        return process_era5_data(file_path)
+    
+    with st.spinner('Loading ERA5 data...'):
+        temp_data, ds = load_era5_cached(era5_file)
+    
+    if temp_data is None:
+        st.error("Failed to load ERA5 data. Please check the file format.")
+        st.stop()
+    
+    # Heatmap type selector
+    st.markdown("---")
+    map_type = st.radio(
+        "**Select Heatmap Type:**",
+        [
+            "Temperature Change (1971-2021 Trend)",
+            "Temperature Distribution (Specific Year)",
+            "Compare Two Years"
+        ],
+        key="heatmap_type"
+    )
+    
+    # Station coordinates for overlay
+    station_coords = {
+        'KAVL': (35.4363, -82.5415, 'Asheville'),
+        'KGSO': (36.0975, -79.9373, 'Greensboro'),
+        'KHSE': (35.2677, -75.5458, 'Cape Hatteras'),
+        'KILM': (34.2704, -77.9025, 'Wilmington'),
+        'KCLT': (35.2144, -80.9473, 'Charlotte'),
+        'KRDU': (35.8801, -78.7880, 'Raleigh-Durham'),
+    }
+    
+    # =================================================================
+    # TYPE 1: TEMPERATURE CHANGE (TREND) - PRIMARY ANALYSIS
+    # =================================================================
+    if map_type == "Temperature Change (1971-2021 Trend)":
+        st.markdown("""
+        ### Rate of Temperature Change (1971-2021)
+        
+        **Shows:** How fast each location is warming or cooling (degrees Fahrenheit per decade)  
+        """)
+        
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            # Season selector
+            season_choice = st.selectbox(
+                "Select Season:",
+                [
+                    "Summer (Jun-Aug)",
+                    "Winter (Dec-Feb)",
+                    "Spring (Mar-May)",
+                    "Fall (Sep-Nov)",
+                    "Annual Average"
+                ],
+                key="trend_season"
+            )
+            
+            # Map season to months
+            season_months = {
+                "Summer (Jun-Aug)": [6, 7, 8],
+                "Winter (Dec-Feb)": [12, 1, 2],
+                "Spring (Mar-May)": [3, 4, 5],
+                "Fall (Sep-Nov)": [9, 10, 11],
+                "Annual Average": list(range(1, 13))
+            }
+            
+            months = season_months[season_choice]
+        
+        # Calculate trends
+        with st.spinner('Calculating temperature trends for each grid cell...'):
+            lats, lons, slopes, r_squared, p_values = calculate_temperature_trends(
+                temp_data, months
+            )
+        
+        # Always apply high-quality smoothing
+        st.markdown("---")
+        with st.spinner('🎨 Creating publication-quality map...'):
+            lats_plot, lons_plot, slopes_plot = interpolate_grid(lats, lons, slopes, factor=8)
+        
+        # Create meshgrid for matplotlib
+        lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
+        
+        # CREATE MATPLOTLIB FIGURE
+        fig = create_matplotlib_heatmap_inline(
+            lats_mesh, lons_mesh, slopes_plot,
+            station_coords=station_coords,
+            title=f'Temperature Change: {season_choice} (1971-2021)\nRate of warming/cooling across Southeast US',
+            cbar_label='Temperature Change (°F/decade)',
+            cmap='RdYlBu_r',
+            vmin=-0.5,
+            vmax=1.5,
+            diverging=True,
+            dpi=150
+        )
+        
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+        
+        # Statistics
+        st.markdown("### Trend Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            mean_change = np.nanmean(slopes)
+            st.metric("Regional Average Change", f"{mean_change:.3f}°F/decade")
+        
+        with col2:
+            max_change = np.nanmax(slopes)
+            st.metric("Maximum Warming", f"{max_change:.3f}°F/decade")
+        
+        with col3:
+            significant = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
+            st.metric("Significant Trends (p<0.05)", f"{significant:.1f}%")
+        
+        with col4:
+            mean_r2 = np.nanmean(r_squared)
+            st.metric("Average R²", f"{mean_r2:.3f}")
+        
+    
+    # =================================================================
+    # TYPE 2: TEMPERATURE DISTRIBUTION (SPECIFIC YEAR/SEASON)
+    # =================================================================
+    elif map_type == "Temperature Distribution (Specific Year)":
+        st.markdown("""
+        ### Spatial Temperature Patterns for a Specific Year
+        
+        **Shows:** Actual temperature distribution across the region for any year and season  
+        **Purpose:** Explore how spatial patterns vary from year to year
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_year = st.selectbox(
+                "Select Year:",
+                list(range(1971, 2022)),
+                index=50,  # Default to 2021
+                key="snapshot_year"
+            )
+        
+        with col2:
+            season_choice = st.selectbox(
+                "Select Season:",
+                [
+                    "Summer (Jun-Aug)",
+                    "Winter (Dec-Feb)",
+                    "Spring (Mar-May)",
+                    "Fall (Sep-Nov)"
+                ],
+                key="snapshot_season"
+            )
+            
+            season_months = {
+                "Summer (Jun-Aug)": [6, 7, 8],
+                "Winter (Dec-Feb)": [12, 1, 2],
+                "Spring (Mar-May)": [3, 4, 5],
+                "Fall (Sep-Nov)": [9, 10, 11]
+            }
+            
+            months = season_months[season_choice]
+        
+        # Get temperature snapshot
+        with st.spinner(f'Loading {season_choice} {selected_year} data...'):
+            lats, lons, temps = get_temperature_snapshot(temp_data, selected_year, months)
+        
+        if temps is None:
+            st.error(f"No data available for {season_choice} {selected_year}")
+            st.stop()
+        
+        # Always apply high-quality smoothing
+        st.markdown("---")
+        with st.spinner('Creating publication-quality map...'):
+            lats_plot, lons_plot, temps_plot = interpolate_grid(lats, lons, temps, factor=8)
+        
+        # Create meshgrid for matplotlib
+        lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
+        
+        # CREATE MATPLOTLIB FIGURE
+        fig = create_matplotlib_heatmap_inline(
+            lats_mesh, lons_mesh, temps_plot,
+            station_coords=station_coords,
+            title=f'Temperature Distribution: {season_choice} {selected_year}',
+            cbar_label='Temperature (°F)',
+            cmap='hot',
+            diverging=False,
+            dpi=150
+        )
+        
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+        
+        # Statistics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Regional Average", f"{np.nanmean(temps):.1f}°F")
+        with col2:
+            st.metric("Warmest Location", f"{np.nanmax(temps):.1f}°F")
+        with col3:
+            st.metric("Coolest Location", f"{np.nanmin(temps):.1f}°F")
+    
+    # =================================================================
+    # TYPE 3: COMPARE TWO YEARS
+    # =================================================================
+    else:  # Compare Two Years
+        st.markdown("""
+        ### Compare Temperature Patterns Between Two Years
+        
+        **Shows:** The difference between two years (Year 2 minus Year 1)  
+        """)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            year1 = st.selectbox(
+                "First Year:", 
+                list(range(1971, 2022)), 
+                index=0, 
+                key="compare_year1"
+            )
+        
+        with col2:
+            year2 = st.selectbox(
+                "Second Year:", 
+                list(range(1971, 2022)), 
+                index=50, 
+                key="compare_year2"
+            )
+        
+        with col3:
+            season_choice = st.selectbox(
+                "Season:",
+                ["Summer (Jun-Aug)", "Winter (Dec-Feb)", "Spring (Mar-May)", "Fall (Sep-Nov)"],
+                key="compare_season"
+            )
+            
+            season_map = {
+                "Summer (Jun-Aug)": [6,7,8],
+                "Winter (Dec-Feb)": [12,1,2],
+                "Spring (Mar-May)": [3,4,5],
+                "Fall (Sep-Nov)": [9,10,11]
+            }
+            months = season_map[season_choice]
+        
+        if year1 == year2:
+            st.warning("⚠️ Please select two different years to compare.")
+            st.stop()
+        
+        # Get both snapshots
+        with st.spinner(''):
+            lats1, lons1, temps1 = get_temperature_snapshot(temp_data, year1, months)
+            lats2, lons2, temps2 = get_temperature_snapshot(temp_data, year2, months)
+            
+            if temps1 is None or temps2 is None:
+                st.error("Data not available for one or both selected years/seasons")
+                st.stop()
+            
+            # Calculate difference
+            temp_diff = temps2 - temps1
+        
+        # Always apply high-quality smoothing
+        st.markdown("---")
+        with st.spinner(''):
+            lats_plot, lons_plot, diff_plot = interpolate_grid(lats1, lons1, temp_diff, factor=8)
+        
+        # Create meshgrid for matplotlib
+        lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
+        
+        # CREATE MATPLOTLIB FIGURE
+        fig = create_matplotlib_heatmap_inline(
+            lats_mesh, lons_mesh, diff_plot,
+            station_coords=station_coords,  # Show stations
+            title=f'Temperature Difference: {season_choice}\n{year2} minus {year1}',
+            cbar_label='Temperature Difference (°F)',
+            cmap='RdBu_r',
+            diverging=True,
+            dpi=150
+        )
+        
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+        
+        # Statistics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        mean_diff = np.nanmean(temp_diff)
+        
+        with col1:
+            st.metric(
+                "Average Difference", 
+                f"{mean_diff:.2f}°F",
+                delta=f"{year2} vs {year1}"
+            )
+        
+        with col2:
+            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff):.1f}°F")
+        
+        with col3:
+            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff):.1f}°F")
+        
+        with col4:
+            pct_warmer = np.sum(temp_diff > 0) / np.sum(~np.isnan(temp_diff)) * 100
+            st.metric("% Area Warmer", f"{pct_warmer:.1f}%")
+        
+        if mean_diff > 0:
+            st.success(f"**Overall:** {year2} was {abs(mean_diff):.2f}°F warmer than {year1} on average")
+        else:
+            st.info(f"❄️ **Overall:** {year2} was {abs(mean_diff):.2f}°F cooler than {year1} on average")
 # Footer
 st.markdown("---")
 st.markdown("""

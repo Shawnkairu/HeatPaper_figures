@@ -52,6 +52,51 @@ def identify_waves(df, column_name='extreme_event', min_consecutive=2):
     df['in_wave'] = df[column_name] & df['wave']
     return df
 
+def analyze_date_specific_exceedances(df, date_str):
+    """
+    Analyze how many times a specific calendar date exceeded/fell below its percentile threshold
+    
+    Args:
+        df: DataFrame with extreme event flags and month_day column
+        date_str: String like '06-15' for June 15
+    
+    Returns:
+        Dictionary with analysis results
+    """
+    specific_date_data = df[df['month_day'] == date_str].copy()
+    
+    if len(specific_date_data) == 0:
+        return None
+    
+    # Count exceedances
+    times_exceeded = specific_date_data['extreme_event'].sum() if 'extreme_event' in specific_date_data.columns else 0
+    total_years = len(specific_date_data)
+    percentage = (times_exceeded / total_years * 100) if total_years > 0 else 0
+    
+    # Get threshold value (find column starting with 'threshold_')
+    threshold_cols = [col for col in specific_date_data.columns if col.startswith('threshold_')]
+    threshold = specific_date_data[threshold_cols[0]].iloc[0] if threshold_cols and len(specific_date_data) > 0 else None
+    
+    # Get actual values from appropriate column
+    if 'heatindexmax2m' in specific_date_data.columns:
+        actual_values = specific_date_data['heatindexmax2m'].dropna()
+    elif 'heatindexmin2m' in specific_date_data.columns:
+        actual_values = specific_date_data['heatindexmin2m'].dropna()
+    else:
+        actual_values = pd.Series()
+    
+    return {
+        'date': date_str,
+        'times_exceeded': int(times_exceeded),
+        'total_years': total_years,
+        'percentage': percentage,
+        'threshold': threshold,
+        'mean': actual_values.mean() if len(actual_values) > 0 else None,
+        'max': actual_values.max() if len(actual_values) > 0 else None,
+        'min': actual_values.min() if len(actual_values) > 0 else None
+    }
+
+
 def apply_loess_smoothing(x, y, frac=0.2):
     """
     Apply LOESS (Locally Weighted Scatterplot Smoothing) to data
@@ -580,135 +625,18 @@ with st.spinner('Loading data...'):
     dfs, all_data = load_data()
 selected_stations = list(dfs.keys())
 
-year_range = st.sidebar.slider(
-    "Year Range",
-    min_value=1971,
-    max_value=2021,
-    value=(1971, 2021)
-)
-
-# Key Metrics Section
-st.header("Key Metrics")
-
-metric_view = st.radio(
-    "View:",
-    ["Statewide Average (All 6 Stations)", "Individual Station"],
-    horizontal=True,
-    key="metric_view"
-)
-
-if metric_view == "Statewide Average (All 6 Stations)":
-    # Calculate metrics - all stations combined
-    recent_years = all_data[(all_data['year'] >= 2015) & (all_data['month'].isin([6, 7, 8]))]
-    early_years = all_data[(all_data['year'] <= 1980) & (all_data['month'].isin([6, 7, 8]))]
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        recent_avg = recent_years['heatindexmax2m'].mean()
-        early_avg = early_years['heatindexmax2m'].mean()
-        st.metric(
-            "Avg Summer High (2015-2021)",
-            f"{recent_avg:.1f}°F",
-            delta=f"+{recent_avg - early_avg:.1f}°F vs 1971-1980"
-        )
-    
-    with col2:
-        recent_min = recent_years['heatindexmin2m'].mean()
-        early_min = early_years['heatindexmin2m'].mean()
-        st.metric(
-            "Avg Summer Low (2015-2021)",
-            f"{recent_min:.1f}°F",
-            delta=f"+{recent_min - early_min:.1f}°F vs 1971-1980"
-        )
-    
-    with col3:
-        summer_data = all_data[all_data['month'].isin([6, 7, 8])]
-        hottest_year = summer_data.groupby('year')['heatindexmax2m'].mean().idxmax()
-        st.metric(
-            "Hottest Summer Year",
-            f"{int(hottest_year)}"
-        )
-    
-    with col4:
-        # Calculate date-specific 98th percentile for summer
-        summer_all = all_data[all_data['month'].isin([6, 7, 8])].copy()
-        summer_extreme = calculate_date_specific_percentiles(
-            summer_all, 
-            'heatindexmax2m', 
-            percentile=0.98
-        )
-        extreme_days = summer_extreme['extreme_event'].sum()
-        st.metric(
-            "Extreme Heat Days (>98th %ile)",
-            f"{extreme_days:,}",
-            help="Days exceeding date-specific 98th percentile threshold"
-        )
-
-else:  # Individual Station view
-    selected_metric_station = st.selectbox(
-        "Select Station",
-        options=list(dfs.keys()),
-        format_func=lambda x: dfs[x]['station_name'].iloc[0],
-        key="metric_station"
-    )
-    
-    station_data = dfs[selected_metric_station]
-    recent_years = station_data[(station_data['year'] >= 2015) & (station_data['month'].isin([6, 7, 8]))]
-    early_years = station_data[(station_data['year'] <= 1980) & (station_data['month'].isin([6, 7, 8]))]
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        recent_avg = recent_years['heatindexmax2m'].mean()
-        early_avg = early_years['heatindexmax2m'].mean()
-        st.metric(
-            "Avg Summer High (2015-2021)",
-            f"{recent_avg:.1f}°F",
-            delta=f"+{recent_avg - early_avg:.1f}°F vs 1971-1980"
-        )
-    
-    with col2:
-        recent_min = recent_years['heatindexmin2m'].mean()
-        early_min = early_years['heatindexmin2m'].mean()
-        st.metric(
-            "Avg Summer Low (2015-2021)",
-            f"{recent_min:.1f}°F",
-            delta=f"+{recent_min - early_min:.1f}°F vs 1971-1980"
-        )
-    
-    with col3:
-        summer_data = station_data[station_data['month'].isin([6, 7, 8])]
-        hottest_year = summer_data.groupby('year')['heatindexmax2m'].mean().idxmax()
-        st.metric(
-            "Hottest Summer Year",
-            f"{int(hottest_year)}"
-        )
-    
-    with col4:
-        # Calculate date-specific 98th percentile for this station
-        summer_station = station_data[station_data['month'].isin([6, 7, 8])].copy()
-        summer_extreme = calculate_date_specific_percentiles(
-            summer_station, 
-            'heatindexmax2m', 
-            percentile=0.98
-        )
-        extreme_days = summer_extreme['extreme_event'].sum()
-        st.metric(
-            "Extreme Heat Days (>98th %ile)",
-            f"{extreme_days}",
-            help="Days exceeding date-specific 98th percentile threshold"
-        )
-
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([
+tab1, tab2, tab3, tab4, tab5= st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
     "WWA Comparison",
-    "Additional Analysis",
     "Regional Heatmap"
 ])
+
+# TAB 1: METHODOLOGY
+# Enhanced Tab 1 - Methodology Section
+# This replaces the section starting around line 706 in the original app.py
 
 # TAB 1: METHODOLOGY
 with tab1:
@@ -734,12 +662,12 @@ with tab1:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # Calculate extreme heat days (summer)
-    summer_all = all_data[all_data['month'].isin([3,4,5,6,7,8,9,10])].copy()
-    summer_extreme = calculate_date_specific_percentiles(summer_all, 'heatindexmax2m', 0.98)
+    # Calculate extreme heat days (March-October, not just summer!)
+    march_to_october = all_data[all_data['month'].isin([3,4,5,6,7,8,9,10])].copy()
+    heat_extreme = calculate_date_specific_percentiles(march_to_october, 'heatindexmax2m', 0.98)
     
-    early_heat = summer_extreme[(summer_extreme['year'] >= 1971) & (summer_extreme['year'] <= 1980)]
-    recent_heat = summer_extreme[(summer_extreme['year'] >= 2012) & (summer_extreme['year'] <= 2021)]
+    early_heat = heat_extreme[(heat_extreme['year'] >= 1971) & (heat_extreme['year'] <= 1980)]
+    recent_heat = heat_extreme[(heat_extreme['year'] >= 2012) & (heat_extreme['year'] <= 2021)]
     
     early_heat_days = early_heat['extreme_event'].sum()
     recent_heat_days = recent_heat['extreme_event'].sum()
@@ -792,8 +720,15 @@ with tab1:
     
     st.markdown("---")
     
+    # ===========================================================================
+    # NEW FEATURE: Date-Specific Exceedance Analysis
+    # ===========================================================================
+
+    
+    # Original date distribution visualization continues below...
     st.subheader("Explore Any Date's Distribution (March - October)")
     
+    # ... [REST OF ORIGINAL TAB 1 CODE CONTINUES HERE] ...
     col1, col2 = st.columns([2, 1])
     
     with col1:
@@ -1031,9 +966,7 @@ with tab2:
         
         for station in selected_stations:
             df = dfs[station]
-            summer = df[(df['month'].isin([3,4,5,6,7,8,9,10])) & 
-                        (df['year'] >= year_range[0]) & 
-                        (df['year'] <= year_range[1])].copy()
+            summer = df[(df['month'].isin([3,4,5,6,7,8,9,10]))].copy()
             
             # Calculate for max (daytime)
             max_extreme = calculate_date_specific_percentiles(summer.dropna(subset=['heatindexmax2m']), 
@@ -1045,7 +978,7 @@ with tab2:
                                                               'heatindexmin2m', 0.98)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(year_range[0], year_range[1] + 1):
+            for year in range(1971, 2022):
                 extreme_heat_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1157,9 +1090,7 @@ with tab2:
         
         for station in selected_stations:
             df = dfs[station]
-            winter = df[(df['month'].isin([11,12,1,2])) & 
-                        (df['year'] >= year_range[0]) & 
-                        (df['year'] <= year_range[1])].copy()
+            winter = df[(df['month'].isin([11,12,1,2]))].copy()
             
             # Calculate for max (daytime)
             max_extreme = calculate_date_specific_percentiles(winter.dropna(subset=['heatindexmax2m']), 
@@ -1171,7 +1102,7 @@ with tab2:
                                                               'heatindexmin2m', 0.02)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(year_range[0], year_range[1] + 1):
+            for year in range(1971, 2022):
                 extreme_cold_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1298,9 +1229,7 @@ with tab3:
         
         for station in selected_stations:
             df = dfs[station].copy()
-            summer = df[(df['month'].isin([3,4,5,6,7,8,9,10])) & 
-                        (df['year'] >= year_range[0]) & 
-                        (df['year'] <= year_range[1])].copy()
+            summer = df[(df['month'].isin([3,4,5,6,7,8,9,10]))].copy()
             
             max_extreme = calculate_date_specific_percentiles(
                 summer.dropna(subset=['heatindexmax2m']), 
@@ -1318,7 +1247,7 @@ with tab3:
             min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
             heatwave_min_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
             
-            for year in range(year_range[0], year_range[1] + 1):
+            for year in range(1971, 2022):
                 heatwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1435,9 +1364,7 @@ with tab3:
             df = dfs[station].copy()
             
             # Coldwaves (November-February)
-            winter = df[(df['month'].isin([11,12,1,2])) & 
-                        (df['year'] >= year_range[0]) & 
-                        (df['year'] <= year_range[1])].copy()
+            winter = df[(df['month'].isin([11,12,1,2]))].copy()
             
             # Max (daytime) coldwaves
             max_cold = calculate_date_specific_percentiles(
@@ -1457,7 +1384,7 @@ with tab3:
             min_cold = identify_waves(min_cold, 'extreme_event', min_consecutive=2)
             coldwave_min_counts = min_cold[min_cold['in_wave']].groupby('year').size()
             
-            for year in range(year_range[0], year_range[1] + 1):
+            for year in range(1971, 2022):
                 coldwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1568,97 +1495,312 @@ with tab3:
 with tab4:
     st.header("Comparison with NWS Watches, Warnings, and Advisories")
     
-    
-    # Placeholder visualization
-    st.markdown("### Sample Comparison Structure")
     st.markdown("""
-    The comparison would show:
-    - Red dots: Our calculated heatwave days (using 98th percentile)
-    - Black dots: WWA issued by NWS
-    - Gap between them shows missed events by current warning system
+    - **Extreme Heat Days** (Red): Days exceeding the 98th percentile threshold using our methodology
+    - **WWAs Issued** (Black): Official National Weather Service heat warnings
+    
     """)
-
-# TAB 5: ADDITIONAL ANALYSIS
-with tab5:
-    st.header("Additional Analysis")
     
-    analysis_choice = st.selectbox(
-        "Select Analysis Type:",
-        ["Seasonal Patterns", "Decadal Trends",]
-    )
+    # ============================================================================
+    # FILE PATH CONFIGURATION
+    # ============================================================================
+    wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/NWS WWA/"  # UPDATE THIS to your file location
     
-    if analysis_choice == "Seasonal Patterns":
-        # Heatmap of monthly averages
-        monthly_data = []
-        for station in selected_stations:
-            df = dfs[station]
-            filtered = df[(df['year'] >= year_range[0]) & (df['year'] <= year_range[1])]
-            monthly_avg = filtered.groupby('month')['heatindexmax2m'].mean()
-            monthly_data.append({
-                'Station': df['station_name'].iloc[0],
-                **{f'Month_{m}': monthly_avg.get(m, None) for m in range(1, 13)}
+    # ============================================================================
+    
+    # Load WWA data for all stations
+    import os
+    
+    wwa_data = {}
+    wwa_files = {
+        'KAVL': f'{wwa_file_path}kavl.wwa.xlsx',
+        'KCLT': f'{wwa_file_path}kclt.wwa.xlsx',
+        'KGSO': f'{wwa_file_path}kgso.wwa.xlsx',
+        'KHSE': f'{wwa_file_path}khse.wwa.xlsx',
+        'KILM': f'{wwa_file_path}kilm.wwa.xlsx',
+        'KRDU': f'{wwa_file_path}krdu.wwa.xlsx'
+    }
+    
+    for station, filepath in wwa_files.items():
+        try:
+            if not os.path.exists(filepath):
+                st.warning(f"⚠️ File not found: {filepath}")
+                wwa_data[station] = pd.DataFrame({'year': [], 'wwa_count': []})
+                continue
+            
+            df = pd.read_excel(filepath)
+            count_col = [col for col in df.columns if 'count' in col.lower() and 'wwa' in col.lower()][0]
+            wwa_summary = df[['year', count_col]].dropna()
+            wwa_summary.columns = ['year', 'wwa_count']
+            wwa_summary['year'] = wwa_summary['year'].astype(int)
+            wwa_data[station] = wwa_summary
+        except Exception as e:
+            st.error(f"Error loading WWA data for {station}: {e}")
+            wwa_data[station] = pd.DataFrame({'year': [], 'wwa_count': []})
+    
+    if all(df.empty for df in wwa_data.values()):
+        st.error(f"""
+        ### ❌ No WWA Data Loaded
+        Please update `wwa_file_path = "{wwa_file_path}"` to point to your WWA files.
+        """)
+        st.stop()
+    
+    # Calculate extreme heat days for 2005-2021
+    extreme_heat_comparison = {}
+    
+    for station in selected_stations:
+        df = dfs[station].copy()
+        
+        # Ensure numeric conversion
+        df['heatindexmax2m'] = pd.to_numeric(df['heatindexmax2m'], errors='coerce')
+        
+        # Create month_day for date-specific percentiles
+        df['month_day'] = df['datetime'].dt.strftime('%m-%d')
+        
+        # Filter for March-October across ALL years for percentile calculation
+        df_march_oct_all = df[df['month'].isin([3,4,5,6,7,8,9,10])].copy()
+        
+        # Calculate 98th percentile for each calendar date using all years (1971-2021)
+        date_thresholds = df_march_oct_all.groupby('month_day')['heatindexmax2m'].quantile(0.98).reset_index()
+        date_thresholds.columns = ['month_day', 'threshold_0.98']
+        
+        # Now filter for 2005-2021 only
+        filtered = df_march_oct_all[(df_march_oct_all['year'] >= 2005) & 
+                                     (df_march_oct_all['year'] <= 2021)].copy()
+        
+        # Merge thresholds
+        filtered = filtered.merge(date_thresholds, on='month_day', how='left')
+        
+        # Flag extreme events
+        filtered['extreme_event'] = filtered['heatindexmax2m'] > filtered['threshold_0.98']
+        
+        # Count extreme heat days per year
+        yearly_extreme = filtered[filtered['extreme_event']].groupby('year').size().reset_index()
+        yearly_extreme.columns = ['year', 'extreme_heat_days']
+        
+        # Ensure all years 2005-2021 are present
+        all_years = pd.DataFrame({'year': range(2005, 2022)})
+        yearly_extreme = all_years.merge(yearly_extreme, on='year', how='left').fillna(0)
+        yearly_extreme['extreme_heat_days'] = yearly_extreme['extreme_heat_days'].astype(int)
+        
+        extreme_heat_comparison[station] = yearly_extreme
+    
+    # Create visualization matching the paper figure style
+    st.markdown("### Number of Extreme Heat Days and WWAs Issued")
+    st.markdown("**March – October (2005-2021)**")
+    
+    stations_to_plot = [s for s in selected_stations if not wwa_data[s].empty or s in extreme_heat_comparison]
+    
+    if len(stations_to_plot) == 0:
+        st.warning("No data available for comparison")
+    else:
+        # Create subplot layout matching the paper (3x2 for up to 6 stations)
+        n_stations = len(stations_to_plot)
+        n_cols = 3
+        n_rows = (n_stations + n_cols - 1) // n_cols
+        
+        fig = make_subplots(
+            rows=n_rows, 
+            cols=n_cols,
+            subplot_titles=[dfs[s]['station_name'].iloc[0].split('-')[0].strip() for s in stations_to_plot],
+            vertical_spacing=0.15,
+            horizontal_spacing=0.10
+        )
+        
+        # Plot each station with vertical line style (matching the figure)
+        for idx, station in enumerate(stations_to_plot):
+            row = idx // n_cols + 1
+            col = idx % n_cols + 1
+            
+            # Get data
+            extreme_data = extreme_heat_comparison.get(station, pd.DataFrame())
+            wwa_df = wwa_data.get(station, pd.DataFrame())
+            
+            # Merge to get both values for each year
+            if not extreme_data.empty and not wwa_df.empty:
+                combined = extreme_data.merge(wwa_df, on='year', how='outer').fillna(0)
+            elif not extreme_data.empty:
+                combined = extreme_data.copy()
+                combined['wwa_count'] = 0
+            elif not wwa_df.empty:
+                combined = wwa_df.copy()
+                combined['extreme_heat_days'] = 0
+            else:
+                continue
+            
+            combined = combined.sort_values('year')
+            
+            # For each year, draw a vertical line from WWA to Extreme Heat Day
+            for _, row_data in combined.iterrows():
+                year = row_data['year']
+                extreme_val = row_data.get('extreme_heat_days', 0)
+                wwa_val = row_data.get('wwa_count', 0)
+                
+                # Draw vertical line connecting the two points
+                fig.add_trace(
+                    go.Scatter(
+                        x=[year, year],
+                        y=[wwa_val, extreme_val],
+                        mode='lines',
+                        line=dict(color='black', width=1),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ),
+                    row=row, col=col
+                )
+            
+            # Plot Extreme Heat Days (Red dots on top)
+            if not extreme_data.empty:
+                fig.add_trace(
+                    go.Scatter(
+                        x=extreme_data['year'],
+                        y=extreme_data['extreme_heat_days'],
+                        mode='markers',
+                        name='Extreme Heat Days',
+                        marker=dict(color='red', size=8, symbol='circle'),
+                        showlegend=(idx == 0),
+                        legendgroup='extreme',
+                        hovertemplate='<b>Year:</b> %{x}<br><b>Extreme Heat Days:</b> %{y}<extra></extra>'
+                    ),
+                    row=row, col=col
+                )
+            
+            # Plot WWAs Issued (Black dots on bottom)
+            if not wwa_df.empty:
+                fig.add_trace(
+                    go.Scatter(
+                        x=wwa_df['year'],
+                        y=wwa_df['wwa_count'],
+                        mode='markers',
+                        name='WWAs Issued',
+                        marker=dict(color='black', size=8, symbol='circle'),
+                        showlegend=(idx == 0),
+                        legendgroup='wwa',
+                        hovertemplate='<b>Year:</b> %{x}<br><b>WWAs Issued:</b> %{y}<extra></extra>'
+                    ),
+                    row=row, col=col
+                )
+            
+            # Update axes
+            fig.update_xaxes(
+                title_text="Year" if row == n_rows else "",
+                range=[2004.5, 2021.5],
+                dtick=2,
+                row=row, col=col
+            )
+            
+            y_max = max(
+                extreme_data['extreme_heat_days'].max() if not extreme_data.empty else 0,
+                wwa_df['wwa_count'].max() if not wwa_df.empty else 0
+            )
+            
+            fig.update_yaxes(
+                title_text="Count" if col == 1 else "",
+                range=[0, y_max + 5],
+                row=row, col=col
+            )
+        
+        # Update layout
+        fig.update_layout(
+            height=350 * n_rows,
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="top",
+                y=-0.05,
+                xanchor="center",
+                x=0.5
+            ),
+            template="plotly_white",
+            hovermode='closest'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Summary statistics
+        st.markdown("### Summary Statistics")
+        
+        summary_data = []
+        for station in stations_to_plot:
+            station_name = dfs[station]['station_name'].iloc[0]
+            extreme_data = extreme_heat_comparison.get(station, pd.DataFrame())
+            wwa_df = wwa_data.get(station, pd.DataFrame())
+            
+            total_extreme = int(extreme_data['extreme_heat_days'].sum()) if not extreme_data.empty else 0
+            total_wwa = int(wwa_df['wwa_count'].sum()) if not wwa_df.empty else 0
+            avg_extreme = extreme_data['extreme_heat_days'].mean() if not extreme_data.empty else 0
+            avg_wwa = wwa_df['wwa_count'].mean() if not wwa_df.empty else 0
+            difference = total_extreme - total_wwa
+            
+            summary_data.append({
+                'Station': station_name,
+                'Total Extreme Heat Days': total_extreme,
+                'Total WWAs Issued': total_wwa,
+                'Difference': difference,
+                'Avg per Year (Extreme)': f"{avg_extreme:.1f}",
+                'Avg per Year (WWA)': f"{avg_wwa:.1f}"
             })
         
-        monthly_df = pd.DataFrame(monthly_data)
-        month_cols = [f'Month_{m}' for m in range(1, 13)]
+        summary_df = pd.DataFrame(summary_data)
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
         
-        fig_heat_monthly = go.Figure(data=go.Heatmap(
-            z=monthly_df[month_cols].values,
-            x=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-            y=monthly_df['Station'],
-            colorscale='RdYlBu_r',
-            text=monthly_df[month_cols].values,
-            texttemplate='%{text:.1f}°F',
-            textfont={"size": 10},
-            colorbar=dict(title="Heat Index (°F)")
-        ))
+        # Key findings
+        st.markdown("### Key Findings")
         
-        fig_heat_monthly.update_layout(
-            title="Average Monthly Heat Index by Station",
-            xaxis_title="Month",
-            yaxis_title="Station",
-            height=400,
-            template="plotly_white"
-        )
-        st.plotly_chart(fig_heat_monthly, use_container_width=True, key="seasonal_heatmap")
-    
-    else:
-        st.markdown("### Temperature Change by Decade")
+        total_all_extreme = sum([extreme_heat_comparison[s]['extreme_heat_days'].sum() 
+                                for s in stations_to_plot if s in extreme_heat_comparison])
+        total_all_wwa = sum([wwa_data[s]['wwa_count'].sum() 
+                            for s in stations_to_plot if not wwa_data[s].empty])
         
-        for station in selected_stations:
-            df = dfs[station]
-            summer = df[df['month'].isin([6,7,8])].dropna(subset=['heatindexmax2m'])
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "Total Extreme Heat Days",
+                f"{int(total_all_extreme)}",
+                help="Sum across all stations, 2005-2021"
+            )
+        
+        with col2:
+            st.metric(
+                "Total WWAs Issued",
+                f"{int(total_all_wwa)}",
+                help="Sum across all stations, 2005-2021"
+            )
+        
+        with col3:
+            if total_all_wwa > 0:
+                difference_pct = ((total_all_extreme - total_all_wwa) / total_all_wwa * 100)
+                delta_text = f"{difference_pct:+.1f}%"
+            else:
+                delta_text = "N/A"
             
-            decade_avg = summer.groupby(summer['year'] // 10 * 10)['heatindexmax2m'].mean()
-            
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                fig_decade = go.Figure()
-                fig_decade.add_trace(go.Bar(
-                    x=[f"{int(d)}s" for d in decade_avg.index],
-                    y=decade_avg.values,
-                    marker_color='coral'
-                ))
-                fig_decade.update_layout(
-                    title=f"{df['station_name'].iloc[0]} - Average Summer Heat Index by Decade",
-                    xaxis_title="Decade",
-                    yaxis_title="Heat Index (°F)",
-                    height=300,
-                    template="plotly_white"
-                )
-                st.plotly_chart(fig_decade, use_container_width=True, key=f"decade_{station}")
-            
-            with col2:
-                if len(decade_avg) > 1:
-                    change = decade_avg.iloc[-1] - decade_avg.iloc[0]
-                    st.metric(
-                        "Total Change",
-                        f"{change:+.1f}°F",
-                        delta=f"{(change/decade_avg.iloc[0]*100):+.1f}%"
-                    )
-
-# TAB 6: REGIONAL HEATMAP (ERA5)
-with tab6:
+            st.metric(
+                "Difference",
+                f"{int(total_all_extreme - total_all_wwa):+d}",
+                delta=delta_text,
+                help="Extreme heat days minus WWAs issued"
+            )
+        
+        # Interpretation
+        if total_all_extreme > total_all_wwa:
+            st.markdown(f"""
+            - Our methodology identifies **{int(total_all_extreme - total_all_wwa)} more events** ({abs(difference_pct):.1f}% more) than current WWA thresholds
+            - The gap represents days with elevated health risk that don't trigger official warnings
+            - This suggests current thresholds may be too conservative for public health protection
+            """)
+        elif total_all_extreme < total_all_wwa:
+            st.markdown(f"""
+            **Interpretation:**
+            - WWAs were issued **{int(total_all_wwa - total_all_extreme)} more times** than our methodology identified extreme heat days
+            - This may indicate WWAs are issued for shorter durations or lower thresholds
+            - Note: WWAs can be issued for heat events lasting just a few hours, while our methodology requires a full day above the 98th percentile
+            """)
+        else:
+            st.markdown("**Interpretation:** The methodologies identified a similar number of events overall.")
+        
+# TAB 5: REGIONAL HEATMAP (ERA5)
+with tab5:
     st.header("Regional Temperature Analysis")
 
     

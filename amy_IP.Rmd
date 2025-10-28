@@ -1,0 +1,3278 @@
+---
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: console
+---
+## SETUP
+```{r Chunk Options}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, echo = FALSE)
+```
+
+```{r Load Packages}
+library(tidyverse)
+library(tidymodels)
+library(readxl)
+library(lubridate)
+library(extrafont)
+library(latex2exp)
+library(gridExtra)
+library(cowplot)
+library(patchwork)
+library(grid)
+```
+
+```{r Load HW Data}
+hw = read_excel("HW-Days.xlsx", col_names = TRUE)
+```
+
+
+## ASHEVILLE
+```{r Load AVL Data}
+avl <- read_excel("KAVL-heatindex-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r AVL Dataframe Cols}
+# convert datetime col to datetime object
+avl <- avl |>
+  mutate(datetime = as.Date(datetime))
+
+# create month-day column for grouping
+avl$month_day <- format(avl$datetime, format = "%m-%d") # month-day col
+
+avl$month <- as.numeric(format(avl$datetime, format = "%m"))
+
+# create year column
+avl$year <- format(avl$datetime, format = "%Y")
+
+# drop nas
+avl <- drop_na(avl)
+```
+
+```{r filter AVL for summer months}
+# filter for summer months
+avl_summer = avl |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r AVL 98P heat index max and min}
+# create cols storing percentile values
+avl = avl |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r AVL 98P heat index max and min summer}
+# summer months
+avl_summer = avl_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r AVL add > 98p indicators to df}
+# new cols indicating extreme heat
+avl = avl |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r AVL summer add extreme indicators to df}
+# summer months
+avl_summer = avl_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r AVL add extreme heat day indicators to df max heat index}
+avl <- avl |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r AVL add extreme heat day indicators to df min heat index}
+avl <- avl |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r AVL add extreme heat day indicators to df max heat index summer}
+avl_summer = avl_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r AVL add extreme heat day indicators to df min heat index summer}
+avl_summer = avl_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r AVL Summarize Extreme Day Counts}
+avl_extreme_counts = avl |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r AVL Summarize Extreme Day Counts Summer}
+avl_summer_extreme_counts = avl_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+### Plots: Extreme Days (Heat Index)
+```{r AVL Max Days Bar Graph}
+# plot extreme days each year
+# bar plot
+
+ggplot(avl_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Asheville",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r AVL Summer Max Days Bar graph}
+# extreme days in summer months, by daily max heat index 
+
+ggplot(avl_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Asheville",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r AVL Min Days Bar Graph}
+ggplot(avl_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Asheville", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r AVL Summer Min Days Bar Graph}
+ggplot(avl_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Asheville",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))+
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting AVL Extremes to plot}
+avl_extreme_pivot = avl_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r AVL Extreme Days Min and Max Bar Graph}
+avl_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Asheville, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r AVL Extreme Min and Max Loess and Points}
+lo.avl.max = lowess(avl_extreme_counts$count_extreme_max ~ avl_extreme_counts$year, f = 1/5)
+lo.avl.min = lowess(avl_extreme_counts$count_extreme_min ~ avl_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(avl_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.avl.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.avl.min$y, group = 1), color = "blue", linewidth = 0.5) +
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Asheville"
+    ) + 
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting AVL Summer Extremes to plot}
+avl_summer_pivot = avl_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r AVL Summer Extreme Days Min and Max Bar Graph}
+avl_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Asheville, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r AVL Summer Extreme Min and Max Loess and Points}
+lo.avl.max.sum = lowess(avl_summer_extreme_counts$count_extreme_max ~ avl_summer_extreme_counts$year, f = 1/5)
+lo.avl.min.sum = lowess(avl_summer_extreme_counts$count_extreme_min ~ avl_summer_extreme_counts$year, f = 1/5)
+
+ggplot(avl_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_point(color = "red", alpha = 0.5, size = 1) + 
+  geom_line(aes(y = lo.avl.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.avl.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Asheville, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+
+### Plots: HW Days
+```{r AVL HW Days by Max HI Bar Graph}
+avl_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_avl_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Asheville",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r AVL HW Days by Min HI Bar Graph}
+avl_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_avl_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Asheville",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting AVL HW Days to Plot}
+avl_hw_pivot = hw |>
+  select(c(year, count_avl_max, count_avl_min)) |>
+  pivot_longer(
+    cols = c(count_avl_max, count_avl_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r AVL HW Days by Min AND Max Bar Graph}
+avl_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Asheville, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_avl_max", "count_avl_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## CHARLOTTE
+```{r Load CLT Data}
+clt <- read_excel("KLCT-heatindex-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r CLT Dataframe Cols}
+# convert datetime col to datetime object
+clt <- clt |>
+  mutate(datetime = as.Date(datetime))
+
+# create month-day column for grouping
+clt$month_day <- format(clt$datetime, format = "%m-%d") # month-day col
+
+clt$month <- as.numeric(format(clt$datetime, format = "%m"))
+
+# create year column
+clt$year <- format(clt$datetime, format = "%Y")
+
+# numeric
+clt$heatindexmax2m = as.numeric(clt$heatindexmax2m)
+clt$heatindexmin2m = as.numeric(clt$heatindexmin2m)
+
+# drop nas
+clt <- drop_na(clt)
+```
+
+```{r filter for CLT summer months}
+# filter for summer months
+clt_summer = clt |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r CLT 98P heat index max and min}
+# create cols storing percentile values
+clt <- clt |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r CLT 98P heat index max and min summer}
+# summer months
+clt_summer = clt_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r CLT add > 98P indicators}
+# new cols indicating extreme heat
+clt <- clt |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r CLT summer add > 98P indicators}
+# summer months
+clt_summer = clt_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r CLT add extreme heat day indicators to df max hi}
+clt <- clt |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r CLT add extreme heat day indicators to df min hi}
+clt <- clt |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r CLT add extreme heat day indicators to df max hi summer}
+clt_summer = clt_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r CLT add extreme heat day indicators to df min hi summer}
+clt_summer = clt_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r CLT Summarize Extreme Day Counts}
+clt_extreme_counts = clt |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r CLT Summarize Extreme Day Counts Summer}
+clt_summer_extreme_counts = clt_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+### Plots: Extremes Heat Index
+```{r CLT Max Days Bar Graph}
+# plot extreme days each year
+# bar plot
+
+clt_hi_max_plot = ggplot(clt_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Charlotte", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +  
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r CLT Summer Max Days Bar Graph}
+# extreme days in summer months, by daily max heat index 
+ggplot(clt_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Charlotte",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r CLT Min Days Bar Graph}
+clt_hi_min_plot = ggplot(clt_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Charlotte", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r CLT Summer Min Days Bar Graph}
+ggplot(clt_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Charlotte", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +  
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting CLT Extremes to plot}
+clt_extreme_pivot = clt_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r CLT Extreme Days Min and Max Bar Graph}
+clt_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Charlotte, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r CLT Extreme Min and Max Loess and Points}
+lo.clt.max = lowess(clt_extreme_counts$count_extreme_max ~ clt_extreme_counts$year, f = 1/5)
+lo.clt.min = lowess(clt_extreme_counts$count_extreme_min ~ clt_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(clt_extreme_counts, aes(x = year, y = count_extreme_max))  +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.clt.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.clt.min$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Charlotte") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting CLT Summer Extremes to Plot}
+clt_summer_pivot = clt_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r CLT Summer Extreme Days Min and Max Bar Graph}
+clt_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Charlotte, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r CLT Summer Extreme Min and Max Loess and Points}
+lo.clt.max.sum = lowess(clt_summer_extreme_counts$count_extreme_max ~ clt_summer_extreme_counts$year, f = 1/5)
+lo.clt.min.sum = lowess(clt_summer_extreme_counts$count_extreme_min ~ clt_summer_extreme_counts$year, f = 1/5)
+
+ggplot(clt_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_line(aes(y = lo.clt.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.clt.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Charlotte, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+
+### Plots: HW Days
+```{r CLT HW Days by Max HI Bar Graph}
+clt_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_clt_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Charlotte", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r CLT HW Days by Min HI Bar Graph}
+clt_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_clt_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Charlotte", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting CLT HW Days to Plot}
+clt_hw_pivot = hw |>
+  select(c(year, count_clt_max, count_clt_min)) |>
+  pivot_longer(
+    cols = c(count_clt_max, count_clt_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r CLT HW Days by Min AND Max Bar Graph}
+clt_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Charlotte, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_clt_max", "count_clt_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## GREENSBORO
+```{r Load GSO Data}
+gso <- read_excel("KGSO-heatindex-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r GSO Dataframe Cols}
+# convert datetime col to datetime object
+gso <- gso |>
+  mutate(datetime = as.Date(datetime))
+
+# create month-day column for grouping
+gso$month_day <- format(gso$datetime, format = "%m-%d") # month-day col
+
+gso$month <- as.numeric(format(gso$datetime, format = "%m"))
+
+# create year column
+gso$year <- format(gso$datetime, format = "%Y")
+
+# numeric
+gso$heatindexmax2m = as.numeric(gso$heatindexmax2m)
+gso$heatindexmin2m = as.numeric(gso$heatindexmin2m)
+
+# drop nas
+gso <- drop_na(gso)
+```
+
+```{r filter GSO for summer months}
+# filter for summer months
+gso_summer = gso |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r GSO 98P calculation heat index max and min}
+# create cols storing percentile values
+gso <- gso |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r GSO 98P calculation heat index max and min summer}
+# summer months
+gso_summer = gso_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r GSO add > 98P indicator}
+# new cols indicating extreme heat
+gso <- gso |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r GSO add > 98P indicator summer}
+# summer months
+gso_summer = gso_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r GSO add consecutive extreme days indicator max hi}
+gso <- gso |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r GSO add consecutive extreme days indicator min hi}
+gso <- gso |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r GSO add consecutive extreme days indicator max hi summer}
+gso_summer = gso_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r GSO add consecutive extreme days indicator min hi summer}
+gso_summer = gso_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r Summarize GSO Extremes}
+gso_extreme_counts = gso |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r Summarize GSO Summer Extremes}
+gso_summer_extreme_counts = gso_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+### Plots, Extreme HI
+```{r GSO Max HI Days Bar Graph}
+# plot extreme days each year
+# bar plot
+
+gso_hi_max_plot = ggplot(gso_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Greensboro", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r GSO Max HI Days Summer Bar Graph}
+# extreme days in summer months, by daily max heat index 
+ggplot(gso_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Greensboro",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r GSO Min HI Days Bar Graph}
+gso_hi_min_plot = ggplot(gso_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Greensboro", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r GSO Min HI Days Summer Bar Graph}
+ggplot(gso_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Greensboro",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting GSO extremes to plot}
+gso_extreme_pivot = gso_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r GSO Extreme Days Min and Max Bar Graph}
+gso_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Greensboro, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r GSO Extreme Min and Max Loess and Points}
+lo.gso.max = lowess(gso_extreme_counts$count_extreme_max ~ gso_extreme_counts$year, f = 1/5)
+lo.gso.min = lowess(gso_extreme_counts$count_extreme_min ~ gso_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(gso_extreme_counts, aes(x = year, y = count_extreme_max))  +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.gso.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.gso.min$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Greensboro") + 
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting GSO Summer Extremes to plot}
+gso_summer_pivot = gso_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r GSO Summer Extreme Days Min and Max Bar Graph}
+gso_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Greensboro, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r GSO Summer Extreme Min and Max Loess and Points}
+lo.gso.max.sum = lowess(gso_summer_extreme_counts$count_extreme_max ~ gso_summer_extreme_counts$year, f = 1/5)
+lo.gso.min.sum = lowess(gso_summer_extreme_counts$count_extreme_min ~ gso_summer_extreme_counts$year, f = 1/5)
+
+ggplot(gso_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_line(aes(y = lo.gso.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.gso.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Greensboro, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+
+### Plots: HW Days
+```{r GSO HW Days by Max HI Bar Graph}
+gso_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_gso_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Greensboro",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r GSO HW Days by Min HI Bar Graph}
+gso_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_gso_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Greensboro", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting GSO HW Days to Plot}
+gso_hw_pivot = hw |>
+  select(c(year, count_gso_max, count_gso_min)) |>
+  pivot_longer(
+    cols = c(count_gso_max, count_gso_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r GSO HW Days by Min AND Max Bar Graph}
+gso_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Greensboro, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_gso_max", "count_gso_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## RALEIGH-DURHAM
+```{r Load RDU Data}
+rdu <- read_excel("KRDU-heat-index-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r RDU Dataframe Cols}
+# convert datetime col to datetime object
+rdu <- rdu |>
+  mutate(datetime = as.Date(date))
+
+# create month-day column for grouping
+rdu$month_day <- format(rdu$datetime, format = "%m-%d") # month-day col
+
+rdu$month <- as.numeric(format(rdu$datetime, format = "%m"))
+
+# create year column
+rdu$year <- format(rdu$datetime, format = "%Y")
+
+# numeric
+rdu$heatindexmax2m = as.numeric(rdu$heatindexmax2m)
+rdu$heatindexmin2m = as.numeric(rdu$heatindexmin2m)
+
+# drop nas
+rdu <- drop_na(rdu)
+```
+
+```{r filter RDU for summer months}
+# filter for summer months
+rdu_summer = rdu |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r RDU 98P calculation heat index max and min}
+# create cols storing percentile values
+rdu <- rdu |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r RDU 98P calculation heat index max and min summer}
+# summer months
+rdu_summer = rdu_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r RDU add > 98P indicator}
+# new cols indicating extreme heat
+rdu <- rdu |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r RDU add > 98P indicator summer}
+# summer months
+rdu_summer = rdu_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r RDU add consecutive extreme days indicator max hi}
+rdu <- rdu |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r RDU add consecutive extreme days indicator min hi}
+rdu <- rdu |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r RDU add consecutive extreme days indicator max hi summer}
+rdu_summer = rdu_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r RDU add consecutive extreme days indicator min hi summer}
+rdu_summer = rdu_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r Summarize RDU Extremes}
+rdu_extreme_counts = rdu |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r Summarize RDU Summer Extremes}
+rdu_summer_extreme_counts = rdu_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+### Plots, Extreme HI
+```{r RDU Max HI Days Bar Graph}
+# plot extreme days each year
+# bar plot
+ggplot(rdu_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Raleigh-Durham", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r RDU Max HI Days Summer Bar Graph}
+# extreme days in summer months, by daily max heat index 
+ggplot(rdu_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Raleigh-Durham",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r RDU Min HI Days Bar Graph}
+ggplot(rdu_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Raleigh-Durham", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r RDU Min HI Days Summer Bar Graph}
+ggplot(rdu_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Raleigh-Durham",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting RDU extremes to plot}
+rdu_extreme_pivot = rdu_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r RDU Extreme Days Min and Max Bar Graph}
+rdu_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Raleigh-Durham, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r RDU Extreme Min and Max Loess and Points}
+lo.rdu.max = lowess(rdu_extreme_counts$count_extreme_max ~ rdu_extreme_counts$year, f = 1/5)
+lo.rdu.min = lowess(rdu_extreme_counts$count_extreme_min ~ rdu_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(rdu_extreme_counts, aes(x = year, y = count_extreme_max))  +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.rdu.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.rdu.min$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Raleigh-Durham") + 
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting RDU Summer Extremes to plot}
+rdu_summer_pivot = rdu_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r RDU Summer Extreme Days Min and Max Bar Graph}
+gso_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Raleigh-Durham, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r RDU Summer Extreme Min and Max Loess and Points}
+lo.rdu.max.sum = lowess(rdu_summer_extreme_counts$count_extreme_max ~ rdu_summer_extreme_counts$year, f = 1/5)
+lo.rdu.min.sum = lowess(rdu_summer_extreme_counts$count_extreme_min ~ rdu_summer_extreme_counts$year, f = 1/5)
+
+ggplot(rdu_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_line(aes(y = lo.rdu.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.rdu.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Raleigh-Durham, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+### Plots: HW Days
+```{r RDU HW Days by Max HI Bar Graph}
+rdu_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_rdu_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Raleigh-Durham", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r RDU HW Days by Min HI Bar Graph}
+rdu_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_rdu_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Raleigh-Durham",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting RDU HW Days to Plot}
+rdu_hw_pivot = hw |>
+  select(c(year, count_rdu_max, count_rdu_min)) |>
+  pivot_longer(
+    cols = c(count_rdu_max, count_rdu_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r RDU HW Days by Min AND Max Bar graph}
+rdu_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Raleigh-Durham, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_rdu_max", "count_rdu_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## WILMINGTON
+```{r Load WILM Data}
+wilm <- read_excel("KILM-heatindex-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r WILM Dataframe cols}
+# convert datetime col to datetime object
+wilm <- wilm |>
+  mutate(datetime = as.Date(datetime))
+
+# create month-day column for grouping
+wilm$month_day <- format(wilm$datetime, format = "%m-%d") # month-day col
+
+wilm$month <- as.numeric(format(wilm$datetime, format = "%m"))
+
+# create year column
+wilm$year <- format(wilm$datetime, format = "%Y")
+
+# numeric
+wilm$heatindexmax2m = as.numeric(wilm$heatindexmax2m)
+wilm$heatindexmin2m = as.numeric(wilm$heatindexmin2m)
+
+# drop nas
+wilm <- drop_na(wilm)
+```
+
+```{r filter Wilm for summer months}
+# filter for summer months
+wilm_summer = wilm |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r Wilm calculate 98p heat index min and max}
+# create cols storing percentile values
+wilm <- wilm |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r Wilm 98p heat index max and min summer}
+# summer months
+wilm_summer = wilm_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r WILM add > 98p indicators to df}
+# new cols indicating extreme heat
+wilm <- wilm |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r WILM add > 98p indicators to df summer}
+# summer months
+wilm_summer = wilm_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r WILM add extreme day indicators to df hi max}
+wilm <- wilm |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r WILM add extreme day indicators to df hi min}
+wilm <- wilm |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r WIlM add extreme day indicators to df hi max summer}
+wilm_summer = wilm_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r WIlM add extreme day indicators to df hi min summer}
+wilm_summer = wilm_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r WILM summarize extreme counts}
+wilm_extreme_counts = wilm |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r WILM summarize extreme counts summer}
+wilm_summer_extreme_counts = wilm_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+
+### Plots, Extreme HI
+#### Max HI Days
+```{r wilm Max Bar}
+# plot extreme days each year
+# bar plot
+
+wilm_hi_max_plot = ggplot(wilm_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Wilmington", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r WILM summer Max Days bar graph}
+# extreme days in summer months, by daily max heat index 
+ggplot(wilm_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Wilmington",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r WILM min Days bar graph}
+wilm_hi_min_plot = ggplot(wilm_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Wilmington", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r WILM summer min days bar graph}
+ggplot(wilm_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Wilmington", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting WILM Extremes to plot}
+wilm_extreme_pivot = wilm_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r WILM Extreme Days Min and Max Bar graph}
+wilm_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Wilmington, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r WILM Extreme Min adn Max Loess and Points}
+lo.wilm.max = lowess(wilm_extreme_counts$count_extreme_max ~ wilm_extreme_counts$year, f = 1/5)
+lo.wilm.min = lowess(wilm_extreme_counts$count_extreme_min ~ wilm_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(wilm_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.wilm.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.wilm.min$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Wilmington") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivoting WILM summer Extremes to plot}
+wilm_summer_pivot = wilm_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r WILM Summer Extreme Days Min and Max Bar Graph}
+wilm_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Wilmington, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r WILM Summer Extreme Min and Max Loess and Points}
+lo.wilm.max.sum = lowess(wilm_summer_extreme_counts$count_extreme_max ~ wilm_summer_extreme_counts$year, f = 1/5)
+lo.wilm.min.sum = lowess(wilm_summer_extreme_counts$count_extreme_min ~ wilm_summer_extreme_counts$year, f = 1/5)
+
+ggplot(wilm_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_line(aes(y = lo.gso.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.gso.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Wilmington, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+
+### Plots: HW Days
+```{r wilm Max HW Bar}
+wilm_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_kilm_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Wilmington", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r wilm Min HW Bar}
+wilm_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_kilm_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Wilmington", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r wilm pivoting hw to plot}
+wilm_hw_pivot = hw |>
+  select(c(year, count_kilm_max, count_kilm_min)) |>
+  pivot_longer(
+    cols = c(count_kilm_max, count_kilm_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r wilm Min and Max hw bar graph}
+wilm_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Wilmington, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_kilm_max", "count_kilm_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## HATTERAS
+```{r Load hse Data}
+hse <- read_excel("KHSE-heatindex-1971-2021.xlsx", col_names = TRUE)
+```
+
+```{r hse dataframe cols}
+# convert datetime col to datetime object
+hse <- hse |>
+  mutate(datetime = as.Date(datetime))
+
+# create month-day column for grouping
+hse$month_day <- format(hse$datetime, format = "%m-%d") # month-day col
+
+hse$month <- as.numeric(format(hse$datetime, format = "%m"))
+
+# create year column
+hse$year <- format(hse$datetime, format = "%Y")
+
+# numeric
+hse$heatindexmax2m = as.numeric(hse$heatindexmax2m)
+hse$heatindexmin2m = as.numeric(hse$heatindexmin2m)
+
+# drop nas
+hse <- drop_na(hse)
+```
+
+```{r hse filter for summer}
+# filter for summer months
+hse_summer = hse |>
+  filter(
+    month > 2 & month < 11
+  )
+```
+
+```{r hse Percentile Calc}
+# create cols storing percentile values
+hse <- hse |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r hse summer percentile calc}
+# summer months
+hse_summer = hse_summer |>
+  group_by(month_day) |>
+  mutate(`Max 98th P` = quantile(heatindexmax2m, 0.98), 
+         `Min 98th P` = quantile(heatindexmin2m, 0.98)) |>
+  ungroup()
+```
+
+```{r hse tag days exceeding 98p}
+# new cols indicating extreme heat
+hse <- hse |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r hse tag summer days exceeding 98p}
+# summer months
+hse_summer = hse_summer |>
+  mutate(
+    himax_hw = ifelse(heatindexmax2m > `Max 98th P`, 1, 0), # for max HI
+    himin_hw = ifelse(heatindexmin2m > `Min 98th P`, 1, 0) # for min HI
+  )
+```
+
+```{r hse tag days exceeding 98p 2 consec days by max}
+hse <- hse |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r hse tag days exceeding 98p 2 consec days by min}
+hse <- hse |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r hse tag days exceeding 98p 2 consec days by max summer}
+hse_summer = hse_summer |>
+  group_by(ID_MAX = data.table::rleid(himax_hw == 1)) |>
+  mutate(
+    consec_himax = if_else(
+      (himax_hw == 1 & (dplyr::lag(himax_hw, default = first(himax_hw)) == 1)) | 
+      (himax_hw == 1 & (dplyr::lead(himax_hw, default = last(himax_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r hse tag days exceeding 98p 2 consec days by min summer}
+hse_summer = hse_summer |>
+  group_by(ID_MIN = data.table::rleid(himin_hw == 1)) |>
+  mutate(
+    consec_himin = if_else(
+      (himin_hw == 1 & (dplyr::lag(himin_hw, default = first(himin_hw)) == 1)) | 
+      (himin_hw == 1 & (dplyr::lead(himin_hw, default = last(himin_hw)) == 1)), 
+      1, 0
+    )
+  )
+```
+
+```{r hse summarize extremes}
+hse_extreme_counts = hse |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+```{r hse summarzie extremes summer}
+hse_summer_extreme_counts = hse_summer |>
+  group_by(year) |>
+  summarize(
+    count_extreme_max = sum(consec_himax > 0), 
+    count_extreme_min = sum(consec_himin > 0)
+    )
+```
+
+
+### Plots, Extreme HI
+```{r hse days max hi > 98p bar graph}
+# plot extreme days each year
+# bar plot
+
+hse_hi_max_plot = ggplot(hse_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Cape Hatteras", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) + 
+  theme_minimal(base_family = "Times") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+# extreme days in summer months, by daily max heat index 
+ggplot(hse_summer_extreme_counts, aes(x = factor(year), y = count_extreme_max)) +
+  geom_bar(stat = "identity", fill = "red") +
+  labs(
+    title = "Cape Hatteras", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r hse days min hi > 98p bar graph}
+hse_hi_min_plot = ggplot(hse_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Cape Hatteras",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+ggplot(hse_summer_extreme_counts, aes(x = factor(year), y = count_extreme_min)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") + 
+  labs(
+    title = "Cape Hatteras", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) +
+  scale_y_continuous(breaks = seq(0, 35, by = 5), limits = c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1)) +
+  theme_classic() +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r Pivot hse to plot both max and min}
+hse_extreme_pivot = hse_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r hse Min Max Bar}
+hse_extreme_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Cape Hatteras, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r hse max min hi loess}
+lo.hse.max = lowess(hse_extreme_counts$count_extreme_max ~ hse_extreme_counts$year, f = 1/5)
+lo.hse.min = lowess(hse_extreme_counts$count_extreme_min ~ hse_extreme_counts$year, f = 1/5)
+
+# Create a ggplot
+ggplot(hse_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_point(color = "red", size = 1, alpha = 0.3) + 
+  geom_point(aes(x = year, y = count_extreme_min), color = "blue", size = 1, alpha = 0.3) + 
+  geom_line(aes(y = lo.hse.max$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.hse.min$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Cape Hatteras") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10))+ 
+  scale_y_continuous(breaks = seq(0, 30, by = 5), limits = c(0, 30)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_classic() + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r pivot hse summer to plot both max and min}
+hse_summer_pivot = hse_summer_extreme_counts |>
+  pivot_longer(
+    cols = c(count_extreme_max, count_extreme_min), 
+    names_to = "measurement", 
+    values_to = "count"
+  )
+```
+
+```{r hse max AND min hi summer bar graph}
+hse_summer_pivot |>
+  ggplot(aes(x = factor(year), y = count, fill = measurement)) +
+  geom_bar(stat = "identity", position = position_dodge()) + 
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Days Heat Indices > 98 P", 
+    subtitle = "Cape Hatteras, Mar-Oct, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_extreme_max", "count_extreme_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+```{r hse max AND min hi summer loess}
+lo.hse.max.sum = lowess(hse_summer_extreme_counts$count_extreme_max ~ hse_summer_extreme_counts$year, f = 1/5)
+lo.hse.min.sum = lowess(hse_summer_extreme_counts$count_extreme_min ~ hse_summer_extreme_counts$year, f = 1/5)
+
+ggplot(hse_summer_extreme_counts, aes(x = year, y = count_extreme_max)) +
+  geom_line(aes(y = lo.hse.max.sum$y, group = 1), color = "red", linewidth = 0.5) +
+  geom_line(aes(y = lo.hse.min.sum$y, group = 1), color = "blue", linewidth = 0.5) + 
+  labs(
+    x = "Year",
+    y = "Number of Days",
+    title = "Extreme Heat Days", 
+    subtitle = "Cape Hatteras, Mar-Oct, 1971-2021") + 
+  theme_minimal(base_family = "Times") +
+  scale_x_discrete(breaks = seq(1971, 2021, by = 10)) + 
+  scale_color_manual(
+    values = c("HI Max" = "red", "HI Min" = "blue"),
+    name = "Measurement"
+  ) +
+  theme_minimal(base_family = "Times")
+``` 
+
+### Plots: HW Days
+```{r hse hw days by max hi bar graph}
+hse_hw_max_plot = hw |>
+ggplot(aes(x = year, y = count_hse_max)) +
+  geom_col(fill = "red") +
+  labs(
+    title = "Cape Hatteras", 
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r hse hw days by min hi bar graph}
+hse_hw_min_plot = hw |>
+ggplot(aes(x = year, y = count_hse_min)) +
+  geom_col(fill = "blue") +
+  labs(
+    title = "Cape Hatteras",
+    x = "Year", 
+    y = "Number of Days"
+  ) +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10))  + 
+  scale_y_continuous(breaks = seq(0, 15, by = 5), limits = c(0, 15)) + 
+  theme_minimal(base_family = "Times") + 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r hse pivot hw days}
+hse_hw_pivot = hw |>
+  select(c(year, count_hse_max, count_hse_min)) |>
+  pivot_longer(
+    cols = c(count_hse_max, count_hse_min), 
+    names_to = "Measurement", 
+    values_to = "Count"
+  )
+```
+
+```{r hse hw days min and max}
+hse_hw_pivot |>
+  ggplot(aes(x = year, y = Count, fill = Measurement)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    x = "Year", 
+    y = "Number of Days", 
+    title = "Heatwave Days", 
+    subtitle = "Cape Hatteras, 1971-2021"
+  ) +
+  theme_minimal(base_family = "Times") +
+  scale_x_continuous(breaks = seq(1971, 2021, by = 10)) + 
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("count_hse_max", "count_hse_min"),
+    labels = c("Max HI", "Min HI"),
+    values = c("red", "blue")
+  )
+```
+
+## WWA GRAPHS
+```{r asheville wwa data check}
+# load Asheville WWA data
+# based on this we see that there were no WWAs issued for Asheville in the last 50 years
+
+avl_wwa = read_excel("data/kavl.wwa.xlsx", col_names = TRUE)
+avl_wwa = avl_wwa |>
+  select(issued, expired, name)
+```
+
+```{r load rdu wwa}
+# load RDU WWA data
+rdu_wwa = read_excel("data/krdu.wwa.xlsx", col_names = TRUE)
+rdu_wwa$year = as.numeric(substr(rdu_wwa$issued, 1, 4)) # year col
+rdu_wwa$month = as.numeric(substr(rdu_wwa$issued, 6,7)) # month col
+```
+
+```{r wwa counts rdu just summer months}
+# wwa counts, rdu, JUST SUMMER MONTHS
+rdu_wwa = rdu_wwa |>
+  filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |> # filter for mar-oct
+  select(year, name) |>
+  group_by(year) |>
+  summarise(wwa_count = n(),
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2013:2014, wwa_count = 0, .before = 9)
+```
+
+```{r load clt wwa}
+clt_wwa <- read_excel("data/kclt.wwa.xlsx", col_names = TRUE)
+clt_wwa$year = as.numeric(substr(clt_wwa$issued, 1, 4))
+clt_wwa$month = as.numeric(substr(clt_wwa$issued, 6,7))
+
+clt_wwa = clt_wwa |>
+  filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |>
+  select(year, name) |>
+  group_by(year) |>
+  summarise(wwa_count = n(),
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2009, wwa_count = 0, .before = 5) |>
+  add_row(year = 2013:2015, wwa_count = 0, .before = 9) |>
+  add_row(year = 2017:2018, wwa_count = 0, .before = 13) |>
+  add_row(year = 2021, wwa_count = 0)
+```
+
+```{r load wilm wwa}
+wilm_wwa <- read_excel("data/kilm.wwa.xlsx", col_names = TRUE)
+wilm_wwa$year = as.numeric(substr(wilm_wwa$issued, 1, 4))
+wilm_wwa$month = as.numeric(substr(wilm_wwa$issued, 6,7))
+
+wilm_wwa = wilm_wwa |>
+  filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |>
+  select(year, name) |>
+  group_by(year) |>
+  summarise(wwa_count = n(),
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2009, wwa_count = 0, .before = 5) |>
+  add_row(year = 2014, wwa_count = 0, .before = 10)
+```
+
+```{r load hse wwa}
+hse_wwa = read_excel("data/khse.wwa.xlsx", col_names = TRUE)
+hse_wwa$year = as.numeric(substr(hse_wwa$issued, 1, 4))
+hse_wwa$month = as.numeric(substr(hse_wwa$issued, 6,7))
+
+hse_wwa = hse_wwa |>
+  filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |>
+  select(year, name) |>
+  group_by(year) |>
+  summarise(wwa_count = n(),
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2009, wwa_count = 0, .before = 5) |>
+  add_row(year = 2013:2014, wwa_count = 0, .before = 9) |>
+  add_row(year = 2021, wwa_count = 0)
+```
+
+```{r load gso wwa}
+gso_wwa = read_excel("data/kgso.wwa.xlsx", col_names = TRUE)
+gso_wwa$year = as.numeric(substr(gso_wwa$issued, 1, 4))
+gso_wwa$month = as.numeric(substr(gso_wwa$issued, 6,7))
+
+gso_wwa = gso_wwa |>
+  filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |>
+  select(year, name) |>
+  group_by(year) |>
+  summarise(wwa_count = n(),
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2008:2009, wwa_count = 0, .before = 4) |>
+  add_row(year = 2013:2015, wwa_count = 0, .before = 9)|>
+  add_row(year = 2018, wwa_count = 0, .before = 14) |>
+  add_row(year = 2021, wwa_count = 0)
+```
+
+```{r combine totals from each station into one df}
+## combine totals from each station for each year
+year_wwa_totals = bind_rows(
+  mutate(rdu_wwa, source = "rdu_wwa"),
+  mutate(clt_wwa, source = "clt_wwa"),
+  mutate(wilm_wwa, source = "wilm_wwa"),
+  mutate(hse_wwa, source = "hse_wwa"),
+  mutate(gso_wwa, source = "gso_wwa")
+)
+```
+
+```{r get year counts for each station}
+year_wwa_totals = year_wwa_totals |>
+  group_by(year) |>
+  summarize(total_wwa = sum(wwa_count))
+```
+
+```{r filter heatwave days for 2005 and after}
+# filter hw days for years 2005 and on
+hw_filt = hw |>
+  filter(year > 2004)
+```
+
+```{r get total number of heatwave days both max and min hi yearly since 2005}
+hw_totals_station = hw_filt |>
+  mutate(
+    avl = count_avl_max + count_avl_min,
+    clt = count_clt_max + count_clt_min,
+    gso = count_gso_max + count_gso_min,
+    hse = count_hse_max + count_hse_min,
+    kilm = count_kilm_max + count_kilm_min,
+    rdu = count_rdu_max + count_rdu_min
+  ) |>
+  select(
+    c(year, avl, clt, gso, hse, kilm, rdu)
+  )
+```
+
+```{r get total number of hw days for all stations combined yearly since 2005}
+hw_totals = hw_totals_station |>
+  mutate(
+    hwtotal = avl + clt + gso + hse + kilm + rdu
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r df with hw and wwa counts per year}
+# this is the dataframe containing hw counts and wwa counts
+extremes_wwas = data.frame(
+  year = hw_totals$year,
+  count = c(hw_totals$hwtotal, year_wwa_totals$total_wwa),
+  measurement = c(rep("extreme_days", 17), rep("total_wwa", 17))
+  )
+```
+
+### Plots
+```{r bar graph hw days and wwas issued yearly all stations}
+extremes_wwas |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Heatwave Days & Number of WWAs Issued",
+    subtitle = "All Stations, 2005-2021"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("extreme_days", "total_wwa"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r total number of hw days per year avl}
+# individual hw days for avl
+hw_totals_avl = hw_totals_station |>
+  mutate(
+    hwtotal = avl
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days per year clt}
+hw_totals_clt = hw_totals_station |>
+  mutate(
+    hwtotal = clt
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days and wwas per year clt}
+# get format similar to extremes_wwas
+extremes_wwas_clt = data.frame(
+  year = hw_totals_clt$year,
+  count = c(hw_totals_clt$hwtotal, clt_wwa$wwa_count),
+  measurement = c(rep("hw_days", 17), rep("wwa_count", 17))
+  )
+```
+
+```{r bar graph hw days and wwas issued yearly clt}
+extremes_wwas_clt |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Charlotte"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4)) +
+  scale_y_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("hw_days", "wwa_count"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r total number of hw days per year gso}
+hw_totals_gso = hw_totals_station |>
+  mutate(
+    hwtotal = gso
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days and wwas per year gso}
+extremes_wwas_gso = data.frame(
+  year = hw_totals_gso$year,
+  count = c(hw_totals_gso$hwtotal, gso_wwa$wwa_count),
+  measurement = c(rep("hw_days", 17), rep("wwa_count", 17))
+  )
+```
+
+```{r bar graph hw days and wwas issued yearly gso}
+extremes_wwas_gso |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Greensboro"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4)) +
+  scale_y_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("hw_days", "wwa_count"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r total number of hw days per year rdu}
+hw_totals_rdu = hw_totals_station |>
+  mutate(
+    hwtotal = rdu
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days and wwas per year rdu}
+# get format similar to extremes_wwas
+extremes_wwas_rdu = data.frame(
+  year = hw_totals_rdu$year,
+  count = c(hw_totals_rdu$hwtotal, rdu_wwa$wwa_count),
+  measurement = c(rep("hw_days", 17), rep("wwa_count", 17))
+  )
+```
+
+```{r bar graph hw days and wwas issued yearly rdu}
+extremes_wwas_rdu |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Raleigh-Durham"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4)) +
+  scale_y_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("hw_days", "wwa_count"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r total number of hw days per year wilm}
+hw_totals_wilm = hw_totals_station |>
+  mutate(
+    hwtotal = kilm
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days and wwas per year wilm}
+# get format similar to extremes_wwas
+extremes_wwas_wilm = data.frame(
+  year = hw_totals_wilm$year,
+  count = c(hw_totals_wilm$hwtotal, wilm_wwa$wwa_count),
+  measurement = c(rep("hw_days", 17), rep("wwa_count", 17))
+  )
+```
+
+```{r bar graph hw days and wwas issued yearly wilm}
+extremes_wwas_wilm |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Wilmington"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4)) +
+  scale_y_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("hw_days", "wwa_count"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r total number of hw days per year hse}
+hw_totals_hse = hw_totals_station |>
+  mutate(
+    hwtotal = hse
+  ) |>
+  select(
+    c(year, hwtotal)
+    )
+```
+
+```{r total number of hw days and wwas per year hse}
+# get format similar to extremes_wwas
+extremes_wwas_hse = data.frame(
+  year = hw_totals_hse$year,
+  count = c(hw_totals_hse$hwtotal, hse_wwa$wwa_count),
+  measurement = c(rep("hw_days", 17), rep("wwa_count", 17))
+  )
+```
+
+```{r bar graph hw days and wwas issued yearly hse}
+extremes_wwas_hse |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Cape Hatteras"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 4))+
+  scale_y_continuous(breaks = seq(0, 20, by = 5), limits = c(0, 20)) + 
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("hw_days", "wwa_count"),
+    labels = c("Heatwave Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+the following is for extreme counts, not specifically summer yet
+```{r i think just a random years frame}
+years = wilm_extreme_counts |>
+  filter(year > 2004) |>
+  select(year)
+```
+
+```{r}
+# need some way to plot the same thing but with extreme counts
+wilm_filt = wilm_summer_extreme_counts |>
+  filter(year > 2004)|>
+  select(-c(year))
+names(wilm_filt) = c("count_wilm_max", "count_wilm_min")
+```
+
+```{r}
+rdu_filt = rdu_summer_extreme_counts |>
+  filter(year > 2004)|>
+  select(-c(year))
+names(rdu_filt) = c("count_rdu_max", "count_rdu_min")
+```
+
+```{r}
+clt_filt = clt_summer_extreme_counts |>
+  filter(year > 2004)|>
+  select(-c(year))
+names(clt_filt) = c("count_clt_max", "count_clt_min")
+```
+
+```{r}
+gso_filt = gso_summer_extreme_counts |>
+  filter(year > 2004)|>
+  select(-c(year))
+names(gso_filt) = c("count_gso_max", "count_gso_min")
+```
+
+```{r}
+hse_filt = hse_summer_extreme_counts |>
+  filter(year > 2004) |>
+  select(-c(year)) 
+names(hse_filt) = c("count_hse_max", "count_hse_min")
+```
+
+```{r}
+extreme_days_filt = cbind(years, clt_filt, gso_filt, hse_filt, wilm_filt, rdu_filt)
+```
+
+```{r}
+extreme_totals_station = extreme_days_filt |>
+  mutate(
+    clt = count_clt_max + count_clt_min,
+    gso = count_gso_max + count_gso_min,
+    hse = count_hse_max + count_hse_min,
+    kilm = count_wilm_max + count_wilm_min,
+    rdu = count_rdu_max + count_rdu_min
+  ) |>
+  select(
+    c(year, clt, gso, hse, kilm, rdu)
+  )
+```
+
+```{r}
+extreme_totals = extreme_totals_station |>
+  mutate(
+    extreme_total = clt + gso + hse + kilm + rdu
+  ) |>
+  select(
+    c(year, extreme_total)
+    )
+```
+
+```{r}
+extremesummer_wwas = data.frame(
+  year = extreme_totals$year,
+  count = c(extreme_totals$extreme_total, year_wwa_totals$total_wwa),
+  measurement = c(rep("extreme_days", 17), rep("total_wwa", 17))
+  )
+```
+
+```{r plot of extreme days and number of wwas issued sliced for summer}
+extremesummer_wwas |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Extreme Days & Number of WWAs Issued",
+    subtitle = "All Stations, Mar-Oct, 2005-2021"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 4)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("extreme_days", "total_wwa"),
+    labels = c("Extreme Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r}
+extreme_totals_max = extreme_days_filt |>
+  mutate(
+    clt = count_clt_max,
+    gso = count_gso_max,
+    hse = count_hse_max,
+    kilm = count_wilm_max,
+    rdu = count_rdu_max
+  ) |>
+  select(
+    c(year, clt, gso, hse, kilm, rdu)
+  )
+```
+
+```{r}
+extreme_totals_max = extreme_totals_max |>
+  mutate(
+    extreme_total = clt + gso + hse + kilm + rdu
+  ) |>
+  select(
+    c(year, extreme_total)
+    )
+```
+
+```{r}
+extremesummer_wwas_max = data.frame(
+  year = years$year,
+  count = c(extreme_totals_max$extreme_total, year_wwa_totals$total_wwa),
+  measurement = c(rep("extreme_days", 17), rep("total_wwa", 17))
+  )
+```
+
+```{r plot extreme days by MAX hi and number of wwas issued sliced for summer}
+extremesummer_wwas_max |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Extreme Days by Daily Max HI & Number of WWAs Issued",
+    subtitle = "All Stations, Mar-Oct, 2005-2021"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 4)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("extreme_days", "total_wwa"),
+    labels = c("Extreme Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r}
+extreme_totals_min = extreme_days_filt |>
+  mutate(
+    clt = count_clt_min,
+    gso = count_gso_min,
+    hse = count_hse_min,
+    kilm = count_wilm_min,
+    rdu = count_rdu_min
+  ) |>
+  select(
+    c(year, clt, gso, hse, kilm, rdu)
+  )
+```
+
+```{r}
+extreme_totals_min = extreme_totals_min |>
+  mutate(
+    extreme_total = clt + gso + hse + kilm + rdu
+  ) |>
+  select(
+    c(year, extreme_total)
+    )
+```
+
+```{r}
+extremesummer_wwas_min = data.frame(
+  year = years$year,
+  count = c(extreme_totals_min$extreme_total, year_wwa_totals$total_wwa),
+  measurement = c(rep("extreme_days", 17), rep("total_wwa", 17))
+  )
+```
+
+```{r plot extreme days by MIN hi and number of wwas issued sliced for summer}
+extremesummer_wwas_min |>
+  ggplot(aes(x = year, y = count, fill = measurement)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Year",
+    y = "Count",
+    title = "Extreme Days by Daily Min HI & Number of WWAs Issued",
+    subtitle = "All Stations, Mar-Oct, 2005-2021"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 4)) +
+  theme_minimal(base_family = "Times") +
+  scale_fill_manual(
+    name = "Measurement",
+    breaks = c("extreme_days", "total_wwa"),
+    labels = c("Extreme Days", "WWAs Issued"),
+    values = c("#D22B2B", "orange")
+  ) + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        plot.subtitle = element_text(hjust = 0.5))
+```
+
+```{r}
+clt_diff_hw = hw_totals_clt
+clt_diff_hw$wwa_count = clt_wwa$wwa_count
+
+clt_diff_hw = clt_diff_hw |>
+  mutate(diff = wwa_count - hwtotal)
+```
+
+```{r difference plot clt hw}
+clt_diff_hw |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff), levels = c("1", "0", "-1"))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Charlotte"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-15, 15, by = 5)) +  
+  scale_fill_manual(values = c("darkgreen", "gray", "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-15, 15))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+gso_diff_hw = hw_totals_gso
+gso_diff_hw$wwa_count = gso_wwa$wwa_count
+
+gso_diff_hw = gso_diff_hw |>
+  mutate(diff = wwa_count - hwtotal)
+```
+
+```{r difference plot gso hw}
+gso_diff_hw |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff), levels = c("1", "0", "-1"))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Greensboro"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-15, 15, by = 5)) +  
+  scale_fill_manual(values = c("darkgreen", "gray", "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-15, 15))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+rdu_diff_hw = hw_totals_rdu
+rdu_diff_hw$wwa_count = rdu_wwa$wwa_count
+
+rdu_diff_hw = rdu_diff_hw |>
+  mutate(diff = wwa_count - hwtotal)
+```
+
+```{r difference plot rdu hw}
+rdu_diff_hw |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff), levels = c("1", "0", "-1")))) +
+  geom_bar(stat = "identity", width = 0.6)  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Raleigh-Durham"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-15, 15, by = 5)) +  
+  scale_fill_manual(values = c("darkgreen", "gray", "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-15, 15))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+wilm_diff_hw = hw_totals_wilm
+wilm_diff_hw$wwa_count = wilm_wwa$wwa_count
+
+wilm_diff_hw = wilm_diff_hw |>
+  mutate(diff = wwa_count - hwtotal)
+```
+
+```{r difference plot wilm hw}
+wilm_diff_hw |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff), levels = c("1", "0", "-1")))) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Wilmington"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-15, 15, by = 5)) +  
+  scale_fill_manual(values = c("darkgreen", "gray", "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-15, 15))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+hse_diff_hw = hw_totals_hse
+hse_diff_hw$wwa_count = hse_wwa$wwa_count
+
+hse_diff_hw = hse_diff_hw |>
+  mutate(diff = wwa_count - hwtotal)
+```
+
+```{r difference plot hse hw}
+hse_diff_hw |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff), levels = c("1", "0", "-1"))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Cape Hatteras"
+  ) +
+  scale_x_continuous(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-15, 15, by = 5)) +  
+  scale_fill_manual(values = c("darkgreen", "gray", "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-15, 15))+ 
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+extreme_clt_filt = clt_summer_extreme_counts |>
+  filter(year > 2004) |>
+  mutate(extreme_count = 
+           count_extreme_max + count_extreme_min) |>
+  select(-c(count_extreme_max, count_extreme_min))
+```
+
+```{r}
+clt_diff_extreme = extreme_clt_filt
+clt_diff_extreme$wwa_count = clt_wwa$wwa_count
+
+clt_diff_extreme = clt_diff_extreme|>
+  mutate(diff = wwa_count - extreme_count)
+```
+
+```{r diff plot clt extreme summer}
+clt_diff_extreme |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Charlotte"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-32, 32, by = 8)) +  
+  scale_fill_manual(values = c("1" = "darkgreen", "0" = "gray", "-1" = "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-32, 32)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5)
+```
+
+```{r}
+extreme_gso_filt = gso_summer_extreme_counts |>
+  filter(year > 2004) |>
+  mutate(extreme_count = 
+           count_extreme_max + count_extreme_min) |>
+  select(-c(count_extreme_max, count_extreme_min))
+```
+
+```{r}
+gso_diff_extreme = extreme_gso_filt
+gso_diff_extreme$wwa_count = gso_wwa$wwa_count
+
+gso_diff_extreme = gso_diff_extreme|>
+  mutate(diff = wwa_count - extreme_count)
+```
+
+```{r diff plot gso extreme summer}
+gso_diff_extreme |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Greensboro"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-32, 32, by = 8)) +  
+  scale_fill_manual(values = c("1" = "darkgreen", "0" = "gray", "-1" = "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-32, 32)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5)
+```
+
+```{r}
+extreme_rdu_filt = rdu_summer_extreme_counts |>
+  filter(year > 2004) |>
+  mutate(extreme_count = 
+           count_extreme_max + count_extreme_min) |>
+  select(-c(count_extreme_max, count_extreme_min))
+```
+
+```{r}
+rdu_diff_extreme = extreme_rdu_filt
+rdu_diff_extreme$wwa_count = rdu_wwa$wwa_count
+
+rdu_diff_extreme = rdu_diff_extreme|>
+  mutate(diff = wwa_count - extreme_count)
+```
+
+```{r diff plot rdu extreme summer}
+rdu_diff_extreme |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Raleigh-Durham"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-32, 32, by = 8)) +  
+  scale_fill_manual(values = c("1" = "darkgreen", "0" = "gray", "-1" = "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-32, 32)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5)
+```
+
+```{r}
+extreme_wilm_filt = wilm_summer_extreme_counts |>
+  filter(year > 2004) |>
+  mutate(extreme_count = 
+           count_extreme_max + count_extreme_min) |>
+  select(-c(count_extreme_max, count_extreme_min))
+```
+
+```{r}
+wilm_diff_extreme = extreme_wilm_filt
+wilm_diff_extreme$wwa_count = wilm_wwa$wwa_count
+
+wilm_diff_extreme = wilm_diff_extreme|>
+  mutate(diff = wwa_count - extreme_count)
+```
+
+```{r diff plot wilm extreme summer}
+wilm_diff_extreme |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Wilmington"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-32, 32, by = 8)) +  
+  scale_fill_manual(values = c("1" = "darkgreen", "0" = "gray", "-1" = "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-32, 32)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5)
+```
+
+```{r}
+extreme_hse_filt = hse_summer_extreme_counts |>
+  filter(year > 2004) |>
+  mutate(extreme_count = 
+           count_extreme_max + count_extreme_min) |>
+  select(-c(count_extreme_max, count_extreme_min))
+```
+
+```{r}
+hse_diff_extreme = extreme_hse_filt
+hse_diff_extreme$wwa_count = hse_wwa$wwa_count
+
+hse_diff_extreme = hse_diff_extreme|>
+  mutate(diff = wwa_count - extreme_count)
+```
+
+```{r diff plot hse extreme summer}
+hse_diff_extreme |>
+  ggplot(aes(x = year, y = diff, fill = factor(sign(diff))))  +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5) +
+  geom_bar(stat = "identity", width = 0.6) +
+  labs(
+    x = "Year",
+    y = "Difference",
+    title = "Cape Hatteras"
+  ) +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 1)) +
+  scale_y_continuous(breaks = seq(-32, 32, by = 8)) +  
+  scale_fill_manual(values = c("1" = "darkgreen", "0" = "gray", "-1" = "#D22B2B")) +
+  theme_bw(base_family = "Times") + 
+  theme(legend.position = "none") + 
+  coord_cartesian(ylim = c(-32, 32)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid", size = 0.5)
+```
+
+### Dumbbell Plots
+```{r}
+clt_diff_extreme |>
+  ggplot() + 
+  geom_segment(aes(x = year, xend = year, 
+                   y = extreme_count, yend = wwa_count), 
+               linewidth = 0.8) + 
+  geom_point(aes(x = year, y = extreme_count), size = 3, color = "red") + 
+  geom_point(aes(x = year, y = wwa_count), size = 3) +
+labs(
+    x = "Year", 
+    y = "Count", 
+    title = "Charlotte"
+  )  +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 2)) + 
+  scale_y_continuous(breaks = seq(0, 40, by = 10), limits = c(0, 40)) + 
+  theme_classic()  +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+rdu_diff_extreme |>
+  ggplot() + 
+  geom_segment(aes(x = year, xend = year, 
+                   y = extreme_count, yend = wwa_count), 
+               linewidth = 0.8) + 
+  geom_point(aes(x = year, y = extreme_count), size = 3, color = "red") + 
+  geom_point(aes(x = year, y = wwa_count), size = 3) +
+labs(
+    x = "Year", 
+    y = "Count", 
+    title = "Raleigh-Durham"
+  )  +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 2)) + 
+  scale_y_continuous(breaks = seq(0, 40, by = 10), limits = c(0, 40)) + 
+  theme_classic()  +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+hse_diff_extreme |>
+  ggplot() + 
+  geom_segment(aes(x = year, xend = year, 
+                   y = extreme_count, yend = wwa_count), 
+               linewidth = 0.8) + 
+  geom_point(aes(x = year, y = extreme_count), size = 3, color = "red") + 
+  geom_point(aes(x = year, y = wwa_count), size = 3) +
+labs(
+    x = "Year", 
+    y = "Count", 
+    title = "Cape Hatteras"
+  )  +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 2)) + 
+  scale_y_continuous(breaks = seq(0, 40, by = 10), limits = c(0, 40)) +  
+  theme_classic()  +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+```{r}
+gso_diff_extreme |>
+  ggplot() + 
+  geom_segment(aes(x = year, xend = year, 
+                   y = extreme_count, yend = wwa_count), 
+               linewidth = 0.8) + 
+  geom_point(aes(x = year, y = extreme_count), size = 3, color = "red") + 
+  geom_point(aes(x = year, y = wwa_count), size = 3) +
+labs(
+    x = "Year", 
+    y = "Count", 
+    title = "Greensboro"
+  )  +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 2)) + 
+  scale_y_continuous(breaks = seq(0, 40, by = 10), limits = c(0, 40)) +  
+  theme_classic()  +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r}
+wilm_diff_extreme |>
+  ggplot() + 
+  geom_segment(aes(x = year, xend = year, 
+                   y = extreme_count, yend = wwa_count), 
+               linewidth = 0.8) + 
+  geom_point(aes(x = year, y = extreme_count), size = 3, color = "red") + 
+  geom_point(aes(x = year, y = wwa_count), size = 3) +
+labs(
+    x = "Year", 
+    y = "Count", 
+    title = "Wilmington"
+  )  +
+  scale_x_discrete(breaks = seq(2005, 2021, by = 2)) + 
+  scale_y_continuous(breaks = seq(0, 40, by = 10), limits = c(0, 40)) + 
+  theme_classic()  +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+## Unique
+```{r}
+# load RDU WWA data
+rdu_wwa_unique = read_excel("data/krdu.wwa.xlsx", col_names = TRUE)
+rdu_wwa_unique$year = as.numeric(substr(rdu_wwa_unique$issued, 1, 4)) # year col
+rdu_wwa_unique$month = as.numeric(substr(rdu_wwa_unique$issued, 6,7)) # month col
+rdu_wwa_unique$day = as.numeric(substr(rdu_wwa_unique$issued, 9,10)) # day col
+```
+
+```{r}
+# wwa counts, rdu, JUST SUMMER MONTHS
+rdu_wwa_unique = rdu_wwa_unique |>
+    filter(name == "Heat Advisory" | name == "Excessive Heat Watch" | name == "Excessive Heat Warning") |>
+  filter(month > 2 & month < 11) |> # filter for mar-oct
+  select(year, month, day) |>
+  group_by(year, month, day) |>
+  summarise(daily_count = n(),
+            .groups = "drop") 
+
+```
+
+```{r}
+rdu_wwa_unique = rdu_wwa_unique |>
+  group_by(year) |>
+  summarise(wwa_count = n(), 
+            .groups = "drop") |>
+  subset(year < 2022) |>
+  add_row(year = 2013:2014, wwa_count = 0, .before = 9)
+```
+

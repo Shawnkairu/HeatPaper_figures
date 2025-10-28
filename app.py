@@ -1504,7 +1504,7 @@ with tab4:
     # ============================================================================
     # FILE PATH CONFIGURATION
     # ============================================================================
-    wwa_file_path = "wwa_files/"  # UPDATE THIS to your file location
+    wwa_file_path = "NWS WWA/"  # UPDATE THIS to your file location
     
     # ============================================================================
     

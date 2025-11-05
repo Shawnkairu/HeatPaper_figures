@@ -1882,7 +1882,7 @@ with tab4:
         # Interpretation
         if total_all_extreme > total_all_wwa:
             st.markdown(f"""
-            - Our methodology identifies **{int(total_all_extreme - total_all_wwa)} more events** ({abs(difference_pct):.1f}% more) than current WWA thresholds
+            - Our methodology identifies {int(total_all_extreme - total_all_wwa)} more events ({abs(difference_pct):.1f}% more) than current WWA thresholds
             - The gap represents days with elevated health risk that don't trigger official warnings
             - This suggests current thresholds may be too conservative for public health protection
             """)

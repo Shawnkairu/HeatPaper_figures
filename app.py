@@ -1599,7 +1599,7 @@ with tab4:
     import os
     wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/"  # Project directory path
     if not os.path.exists(wwa_file_path):
-        wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/NWS WWA/"  # Fallback path
+        wwa_file_path = "/NWS WWA/"  # Fallback path
     
     # ============================================================================
     

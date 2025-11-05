@@ -571,7 +571,7 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 @st.cache_data
 def load_data():
     # Try project directory first, then fall back to local folder
-    project_folder = '/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/filtered_1974_2024/'
+    project_folder = 'filtered_1974_2024'
     local_folder = 'heat_index_files'
     
     # Determine which folder to use

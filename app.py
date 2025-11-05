@@ -1577,8 +1577,6 @@ with tab4:
 
     
     **Notes:**
-    - **Why might WWAs exceed extreme heat days (e.g., Wilmington)?** WWAs can be issued for shorter durations (even just a few hours above threshold), 
-      while our methodology requires a full day with maximum heat index above the 98th percentile. This explains cases where WWA counts may be higher.
     - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
     - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
     - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate

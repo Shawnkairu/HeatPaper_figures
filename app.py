@@ -137,7 +137,7 @@ def apply_loess_smoothing(x, y, frac=0.2):
 # ERA5 DATA PROCESSING FUNCTIONS
 # ============================================================================
 
-def process_era5_data(era5_file='era5_temperature_nc_1971_2021.nc'):
+def process_era5_data(era5_file='era5_temperature_nc_1974_2024.nc'):
     """
     Process ERA5 NetCDF and load temperature data
     """
@@ -556,7 +556,7 @@ st.markdown("""
     """, unsafe_allow_html=True)
 
 # Title and description
-st.title("North Carolina Heat Index Analysis (1971-2021)")
+st.title("North Carolina Heat Index Analysis (1974-2024)")
 # st.markdown("""
 # **Redefining Extreme Heat and Cold Events for Emergency Healthcare**
 
@@ -570,16 +570,31 @@ st.title("North Carolina Heat Index Analysis (1971-2021)")
 # Load data function
 @st.cache_data
 def load_data():
-    folder = 'heat_index_files'
+    # Try project directory first, then fall back to local folder
+    project_folder = '/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/filtered_1974_2024/'
+    local_folder = 'heat_index_files'
     
-    filenames = {
-        'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
-        'KGSO': 'KGSO-heatindex-1971-2021.xlsx',
-        'KHSE': 'KHSE-heatindex-1971-2021.xlsx',
-        'KILM': 'KILM-heatindex-1971-2021.xlsx',
-        'KCLT': 'KLCT-heatindex-1971-2021.xlsx',
-        'KRDU': 'KRDU-heat-index-1971-2021.xlsx',
-    }
+    # Determine which folder to use
+    if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
+        folder = project_folder
+        filenames = {
+            'KAVL': 'KAVLheatindex19742024.xlsx',
+            'KGSO': 'KGSOheatindex19742024.xlsx',
+            'KHSE': 'KHSEheatindex19742024.xlsx',
+            'KILM': 'KILMheatindex19742024.xlsx',
+            'KCLT': 'KLCTheatindex19742024.xlsx',
+            'KRDU': 'KRDUheatindex19742024.xlsx',
+        }
+    else:
+        folder = local_folder
+        filenames = {
+            'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
+            'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
+            'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
+            'KILM': 'KILM-heatindex-1974-2024.xlsx',
+            'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
+            'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
+        }
     
     station_names = {
         'KAVL': 'Asheville (Mountains)',
@@ -651,7 +666,7 @@ with tab1:
     
     st.markdown("""
     **For each calendar date (e.g., June 15):**
-    1. Collect all June 15th values from 1971-2021 (51 years)
+    1. Collect all June 15th values from 1974-2024 (51 years)
     2. Calculate the 98th percentile (heat) and 2nd percentile (cold) of those 51 values
     3. Any June 15th exceeding its specific threshold is an "extreme heat/cold day"
     4. Two or more consecutive extreme days = "heatwave/coldwave"
@@ -666,8 +681,8 @@ with tab1:
     march_to_october = all_data[all_data['month'].isin([3,4,5,6,7,8,9,10])].copy()
     heat_extreme = calculate_date_specific_percentiles(march_to_october, 'heatindexmax2m', 0.98)
     
-    early_heat = heat_extreme[(heat_extreme['year'] >= 1971) & (heat_extreme['year'] <= 1980)]
-    recent_heat = heat_extreme[(heat_extreme['year'] >= 2012) & (heat_extreme['year'] <= 2021)]
+    early_heat = heat_extreme[(heat_extreme['year'] >= 1974) & (heat_extreme['year'] <= 1983)]
+    recent_heat = heat_extreme[(heat_extreme['year'] >= 2015) & (heat_extreme['year'] <= 2024)]
     
     early_heat_days = early_heat['extreme_event'].sum()
     recent_heat_days = recent_heat['extreme_event'].sum()
@@ -676,15 +691,15 @@ with tab1:
     winter_all = all_data[all_data['month'].isin([11,12,1,2])].copy()
     winter_extreme = calculate_date_specific_percentiles(winter_all, 'heatindexmin2m', 0.02)
     
-    early_cold = winter_extreme[(winter_extreme['year'] >= 1971) & (winter_extreme['year'] <= 1980)]
-    recent_cold = winter_extreme[(winter_extreme['year'] >= 2012) & (winter_extreme['year'] <= 2021)]
+    early_cold = winter_extreme[(winter_extreme['year'] >= 1974) & (winter_extreme['year'] <= 1983)]
+    recent_cold = winter_extreme[(winter_extreme['year'] >= 2015) & (winter_extreme['year'] <= 2024)]
     
     early_cold_days = early_cold['extreme_event'].sum()
     recent_cold_days = recent_cold['extreme_event'].sum()
     
     with col1:
         st.metric(
-            "Extreme Heat Days (1971-1980)",
+            "Extreme Heat Days (1974-1983)",
             f"{early_heat_days:,}",
             help="Days exceeding 98th percentile (March-October)"
         )
@@ -693,7 +708,7 @@ with tab1:
         increase = recent_heat_days - early_heat_days
         pct_increase = (increase / early_heat_days * 100) if early_heat_days > 0 else 0
         st.metric(
-            "Extreme Heat Days (2012-2021)",
+            "Extreme Heat Days (2015-2024)",
             f"{recent_heat_days:,}",
             delta=f"+{increase:,} days ({pct_increase:.1f}%)",
             delta_color="inverse",
@@ -702,7 +717,7 @@ with tab1:
     
     with col3:
         st.metric(
-            "Extreme Cold Days (1971-1980)",
+            "Extreme Cold Days (1974-1983)",
             f"{early_cold_days:,}",
             help="Days below 2nd percentile (November-February)"
         )
@@ -711,7 +726,7 @@ with tab1:
         decrease = recent_cold_days - early_cold_days
         pct_decrease = (decrease / early_cold_days * 100) if early_cold_days > 0 else 0
         st.metric(
-            "Extreme Cold Days (2012-2021)",
+            "Extreme Cold Days (2015-2024)",
             f"{recent_cold_days:,}",
             delta=f"{decrease:,} days ({pct_decrease:.1f}%)",
             delta_color="normal",
@@ -819,7 +834,7 @@ with tab1:
         )
         
         fig_summer.update_layout(
-            title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1971-2021)</sub>",
+            title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
             xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°F)",
             yaxis_title="Frequency (Probability)",
             height=450,
@@ -913,7 +928,7 @@ with tab1:
         )
         
         fig_winter.update_layout(
-            title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(winter_data)} years of data (1971-2021)</sub>",
+            title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(winter_data)} years of data (1974-2024)</sub>",
             xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°F)",
             yaxis_title="Frequency (Probability)",
             height=450,
@@ -978,7 +993,7 @@ with tab2:
                                                               'heatindexmin2m', 0.98)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(1971, 2022):
+            for year in range(1974, 2025):
                 extreme_heat_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1041,6 +1056,15 @@ with tab2:
                 row=row, col=col
             )
         
+        # Find max value across all stations for consistent y-axis
+        max_y_heat = max([
+            extreme_heat_df[extreme_heat_df['station'] == s]['max_extreme'].max()
+            for s in selected_stations
+        ] + [
+            extreme_heat_df[extreme_heat_df['station'] == s]['min_extreme'].max()
+            for s in selected_stations
+        ])
+        
         fig_heat.update_layout(
             title_text="Count of Extreme Heat Days by Station",
             height=800,
@@ -1056,7 +1080,12 @@ with tab2:
         )
         
         fig_heat.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-        fig_heat.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_heat.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='LightGray',
+            range=[0, 20]  # Add small buffer above max
+        )
         
         st.plotly_chart(fig_heat, use_container_width=True, key="extreme_heat_facet")
         
@@ -1068,7 +1097,7 @@ with tab2:
             st.markdown("**Daytime Extreme Heat (Max HI):**")
             for station in selected_stations[:3]:
                 station_data = extreme_heat_df[extreme_heat_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['max_extreme'].mean()
+                early = station_data[station_data['year'] <= 1993]['max_extreme'].mean()
                 recent = station_data[station_data['year'] >= 2010]['max_extreme'].mean()
                 change = ((recent - early) / early * 100) if early > 0 else 0
                 st.write(f"**{station_data['station_name'].iloc[0]}**: {change:+.1f}% change")
@@ -1077,7 +1106,7 @@ with tab2:
             st.markdown("**Nighttime Extreme Heat (Min HI):**")
             for station in selected_stations[3:]:
                 station_data = extreme_heat_df[extreme_heat_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['min_extreme'].mean()
+                early = station_data[station_data['year'] <= 1993]['min_extreme'].mean()
                 recent = station_data[station_data['year'] >= 2010]['min_extreme'].mean()
                 change = ((recent - early) / early * 100) if early > 0 else 0
                 st.write(f"**{station_data['station_name'].iloc[0]}**: {change:+.1f}% change")
@@ -1102,7 +1131,7 @@ with tab2:
                                                               'heatindexmin2m', 0.02)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(1971, 2022):
+            for year in range(1974, 2025):
                 extreme_cold_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1165,6 +1194,15 @@ with tab2:
                 row=row, col=col
             )
         
+        # Find max value across all stations for consistent y-axis
+        max_y_cold = max([
+            extreme_cold_df[extreme_cold_df['station'] == s]['max_extreme'].max()
+            for s in selected_stations
+        ] + [
+            extreme_cold_df[extreme_cold_df['station'] == s]['min_extreme'].max()
+            for s in selected_stations
+        ])
+        
         fig_cold.update_layout(
             title_text="Count of Extreme Cold Days by Station",
             height=800,
@@ -1180,7 +1218,12 @@ with tab2:
         )
         
         fig_cold.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-        fig_cold.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_cold.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='LightGray',
+            range=[0, 10]  # Add small buffer above max
+        )
         
         st.plotly_chart(fig_cold, use_container_width=True, key="extreme_cold_facet")
         
@@ -1192,7 +1235,7 @@ with tab2:
             st.markdown("**Daytime Extreme Cold (Max HI):**")
             for station in selected_stations[:3]:
                 station_data = extreme_cold_df[extreme_cold_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['max_extreme'].mean()
+                early = station_data[station_data['year'] <= 1993]['max_extreme'].mean()
                 recent = station_data[station_data['year'] >= 2010]['max_extreme'].mean()
                 change = ((recent - early) / early * 100) if early > 0 else 0
                 st.write(f"**{station_data['station_name'].iloc[0]}**: {change:+.1f}% change")
@@ -1201,7 +1244,7 @@ with tab2:
             st.markdown("**Nighttime Extreme Cold (Min HI):**")
             for station in selected_stations[3:]:
                 station_data = extreme_cold_df[extreme_cold_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['min_extreme'].mean()
+                early = station_data[station_data['year'] <= 1993]['min_extreme'].mean()
                 recent = station_data[station_data['year'] >= 2010]['min_extreme'].mean()
                 change = ((recent - early) / early * 100) if early > 0 else 0
                 st.write(f"**{station_data['station_name'].iloc[0]}**: {change:+.1f}% change")
@@ -1247,7 +1290,7 @@ with tab3:
             min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
             heatwave_min_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
             
-            for year in range(1971, 2022):
+            for year in range(1974, 2025):
                 heatwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1310,6 +1353,15 @@ with tab3:
                 row=row, col=col
             )
         
+        # Find max value across all stations for consistent y-axis
+        max_y_heatwave = max([
+            heatwave_df[heatwave_df['station'] == s]['heatwave_max'].max()
+            for s in selected_stations
+        ] + [
+            heatwave_df[heatwave_df['station'] == s]['heatwave_min'].max()
+            for s in selected_stations
+        ])
+        
         fig_heatwaves.update_layout(
             title_text="Count of Heatwaves by Station (March - October)",
             height=800,
@@ -1325,7 +1377,12 @@ with tab3:
         )
         
         fig_heatwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-        fig_heatwaves.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_heatwaves.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='LightGray',
+            range=[0, 10]  # Add small buffer above max
+        )
         
         st.plotly_chart(fig_heatwaves, use_container_width=True, key="heatwaves_facet")
         
@@ -1340,17 +1397,17 @@ with tab3:
             st.markdown("**Daytime Heatwaves (HI-max) - Recent Increase:**")
             for station in selected_stations[:3]:
                 station_data = heatwave_df[heatwave_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['heatwave_max'].sum()
+                early = station_data[station_data['year'] <= 1993]['heatwave_max'].sum()
                 recent = station_data[station_data['year'] >= 2010]['heatwave_max'].sum()
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1971-1990) → {recent} days (2010-2021)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) → {recent} days (2012-2024)")
         
         with col2:
             st.markdown("**Nighttime Heatwaves (HI-min) - Recent Increase:**")
             for station in selected_stations[3:]:
                 station_data = heatwave_df[heatwave_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['heatwave_min'].sum()
+                early = station_data[station_data['year'] <= 1993]['heatwave_min'].sum()
                 recent = station_data[station_data['year'] >= 2010]['heatwave_min'].sum()
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1971-1990) → {recent} days (2010-2021)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) → {recent} days (2012-2024)")
         
         st.info("**Key Finding:** Nighttime heatwaves (orange lines) are particularly concerning as they prevent physiological recovery from daytime heat, compounding health risks.")
     
@@ -1384,7 +1441,7 @@ with tab3:
             min_cold = identify_waves(min_cold, 'extreme_event', min_consecutive=2)
             coldwave_min_counts = min_cold[min_cold['in_wave']].groupby('year').size()
             
-            for year in range(1971, 2022):
+            for year in range(1974, 2025):
                 coldwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1447,6 +1504,15 @@ with tab3:
                 row=row, col=col
             )
         
+        # Find max value across all stations for consistent y-axis
+        max_y_coldwave = max([
+            coldwave_df[coldwave_df['station'] == s]['coldwave_max'].max()
+            for s in selected_stations
+        ] + [
+            coldwave_df[coldwave_df['station'] == s]['coldwave_min'].max()
+            for s in selected_stations
+        ])
+        
         fig_coldwaves.update_layout(
             title_text="Count of Coldwaves by Station (November - February)",
             height=800,
@@ -1463,7 +1529,12 @@ with tab3:
         
         # Update all x and y axes
         fig_coldwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
-        fig_coldwaves.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_coldwaves.update_yaxes(
+            showgrid=True, 
+            gridwidth=1, 
+            gridcolor='LightGray',
+            range=[0, 6]  # Add small buffer above max
+        )
         
         st.plotly_chart(fig_coldwaves, use_container_width=True, key="coldwaves_facet")
         
@@ -1475,19 +1546,19 @@ with tab3:
             st.markdown("**Daytime Coldwaves (HI-max) - Trend:**")
             for station in selected_stations[:3]:
                 station_data = coldwave_df[coldwave_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['coldwave_max'].sum()
+                early = station_data[station_data['year'] <= 1993]['coldwave_max'].sum()
                 recent = station_data[station_data['year'] >= 2010]['coldwave_max'].sum()
                 change = recent - early
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1971-1990) → {recent} days (2010-2021)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) → {recent} days (2012-2024)")
         
         with col2:
             st.markdown("**Nighttime Coldwaves (HI-min) - Trend:**")
             for station in selected_stations[3:]:
                 station_data = coldwave_df[coldwave_df['station'] == station]
-                early = station_data[station_data['year'] <= 1990]['coldwave_min'].sum()
+                early = station_data[station_data['year'] <= 1993]['coldwave_min'].sum()
                 recent = station_data[station_data['year'] >= 2010]['coldwave_min'].sum()
                 change = recent - early
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1971-1990) → {recent} days (2010-2021)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) → {recent} days (2012-2024)")
         
         st.info("**Key Finding:** Coldwaves are generally decreasing as winters warm, but extreme cold events still pose significant health risks when they occur.")
 
@@ -1496,15 +1567,39 @@ with tab4:
     st.header("Comparison with NWS Watches, Warnings, and Advisories")
     
     st.markdown("""
+    ### Methodology
+    
+    **Calculation Method:**
+    1. For each station, we calculate the 98th percentile threshold for every calendar date using the full historical record (1974-2024)
+    2. For the comparison period (2005-2021), we count how many days exceed their date-specific 98th percentile threshold
+    3. WWAs are counted as issued by the NWS for each year
+    4. We then compare our extreme heat day counts to the official WWA counts
+
+    
+    **Notes:**
+    - **Why might WWAs exceed extreme heat days (e.g., Wilmington)?** WWAs can be issued for shorter durations (even just a few hours above threshold), 
+      while our methodology requires a full day with maximum heat index above the 98th percentile. This explains cases where WWA counts may be higher.
+    - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
+    - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
+    - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate
+    
+    ---
+    
+    **Visualization:**
     - **Extreme Heat Days** (Red): Days exceeding the 98th percentile threshold using our methodology
     - **WWAs Issued** (Black): Official National Weather Service heat warnings
     
     """)
     
+    
     # ============================================================================
     # FILE PATH CONFIGURATION
     # ============================================================================
-    wwa_file_path = "NWS WWA/"  # UPDATE THIS to your file location
+    # Try project directory first, fall back to user-specified path
+    import os
+    wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/"  # Project directory path
+    if not os.path.exists(wwa_file_path):
+        wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/NWS WWA/"  # Fallback path
     
     # ============================================================================
     
@@ -1560,7 +1655,7 @@ with tab4:
         # Filter for March-October across ALL years for percentile calculation
         df_march_oct_all = df[df['month'].isin([3,4,5,6,7,8,9,10])].copy()
         
-        # Calculate 98th percentile for each calendar date using all years (1971-2021)
+        # Calculate 98th percentile for each calendar date using all years (1974-2024)
         date_thresholds = df_march_oct_all.groupby('month_day')['heatindexmax2m'].quantile(0.98).reset_index()
         date_thresholds.columns = ['month_day', 'threshold_0.98']
         
@@ -1602,7 +1697,11 @@ with tab4:
         fig = make_subplots(
             rows=n_rows, 
             cols=n_cols,
-            subplot_titles=[dfs[s]['station_name'].iloc[0].split('-')[0].strip() for s in stations_to_plot],
+            subplot_titles=[
+                dfs[s]['station_name'].iloc[0].split('-')[0].strip() + 
+                (" (Piedmont)" if "Raleigh" in dfs[s]['station_name'].iloc[0] else "")
+                for s in stations_to_plot
+            ],
             vertical_spacing=0.15,
             horizontal_spacing=0.10
         )
@@ -1805,7 +1904,7 @@ with tab5:
 
     
     # Check if ERA5 file exists
-    era5_file = 'era5_temperature_nc_1971_2021.nc'
+    era5_file = 'era5_temperature_nc_1974_2024.nc'
     
     if not os.path.exists(era5_file):
         st.warning(f"""
@@ -1814,7 +1913,7 @@ with tab5:
         To use this feature, please download ERA5 monthly temperature data:
         
         1. **Create account:** https://cds.climate.copernicus.eu/
-        2. **Download dataset:** Monthly 2m temperature (1971-2021)
+        2. **Download dataset:** Monthly 2m temperature (1974-2024)
         3. **Region:** North America (lat: 24-40°N, lon: -92 to -75°E)
         4. **Save as:** `{era5_file}` in the same directory as app.py
         
@@ -1832,13 +1931,13 @@ c.retrieve(
     {
         'product_type': 'monthly_averaged_reanalysis',
         'variable': '2m_temperature',
-        'year': [str(year) for year in range(1971, 2022)],
+        'year': [str(year) for year in range(1974, 2025)],
         'month': [f'{m:02d}' for m in range(1, 13)],
         'time': '00:00',
         'area': [40, -92, 24, -75],  # N, W, S, E
         'format': 'netcdf',
     },
-    'era5_temperature_nc_1971_2021.nc'
+    'era5_temperature_nc_1974_2024.nc'
 )
             ''', language='python')
         
@@ -1861,7 +1960,7 @@ c.retrieve(
     map_type = st.radio(
         "**Select Heatmap Type:**",
         [
-            "Temperature Change (1971-2021 Trend)",
+            "Temperature Change (1974-2024 Trend)",
             "Temperature Distribution (Specific Year)",
             "Compare Two Years"
         ],
@@ -1881,9 +1980,9 @@ c.retrieve(
     # =================================================================
     # TYPE 1: TEMPERATURE CHANGE (TREND) - PRIMARY ANALYSIS
     # =================================================================
-    if map_type == "Temperature Change (1971-2021 Trend)":
+    if map_type == "Temperature Change (1974-2024 Trend)":
         st.markdown("""
-        ### Rate of Temperature Change (1971-2021)
+        ### Rate of Temperature Change (1974-2024)
         
         **Shows:** How fast each location is warming or cooling (degrees Fahrenheit per decade)  
         """)
@@ -1933,7 +2032,7 @@ c.retrieve(
         fig = create_matplotlib_heatmap_inline(
             lats_mesh, lons_mesh, slopes_plot,
             station_coords=station_coords,
-            title=f'Temperature Change: {season_choice} (1971-2021)\nRate of warming/cooling across Southeast US',
+            title=f'Temperature Change: {season_choice} (1974-2024)\nRate of warming/cooling across Southeast US',
             cbar_label='Temperature Change (°F/decade)',
             cmap='RdYlBu_r',
             vmin=-0.5,
@@ -1982,8 +2081,8 @@ c.retrieve(
         with col1:
             selected_year = st.selectbox(
                 "Select Year:",
-                list(range(1971, 2022)),
-                index=50,  # Default to 2021
+                list(range(1974, 2024)),
+                index=49,  # Default to 2021
                 key="snapshot_year"
             )
         
@@ -2062,16 +2161,16 @@ c.retrieve(
         with col1:
             year1 = st.selectbox(
                 "First Year:", 
-                list(range(1971, 2022)), 
-                index=0, 
+                list(range(1974, 2024)), 
+                index=49, 
                 key="compare_year1"
             )
         
         with col2:
             year2 = st.selectbox(
                 "Second Year:", 
-                list(range(1971, 2022)), 
-                index=50, 
+                list(range(1974, 2024)), 
+                index=49, 
                 key="compare_year2"
             )
         

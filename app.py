@@ -1579,7 +1579,7 @@ with tab4:
     **Notes:**
     - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
     - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
-    - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate
+    - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate. Also, WWAs in Wilmington are higher than heat events, but not sure why.
     
     ---
     

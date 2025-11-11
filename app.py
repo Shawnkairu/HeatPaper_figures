@@ -1075,7 +1075,8 @@ with tab2:
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=16)
             )
         )
         
@@ -1213,7 +1214,8 @@ with tab2:
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=16)
             )
         )
         
@@ -1372,7 +1374,8 @@ with tab3:
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=16)
             )
         )
         
@@ -1523,7 +1526,8 @@ with tab3:
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=16)
             )
         )
         
@@ -1806,7 +1810,8 @@ with tab4:
                 yanchor="top",
                 y=-0.15,
                 xanchor="center",
-                x=0.5
+                x=0.5,
+                font=dict(size=16)
             ),
             template="plotly_white",
             hovermode='closest'

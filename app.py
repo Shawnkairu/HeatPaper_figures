@@ -13,6 +13,72 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
+ADDITIONAL_REGIONS = {
+    'east_africa': {
+        'name': 'East Africa',
+        'full_name': 'East Africa (Uganda, Kenya, Tanzania)',
+        'file': 'era5_east_africa_1974_2024.nc',
+        'area': [5, 29, -12, 42],  # [North, West, South, East]
+        'cities': {
+            'KAMPALA': (0.3476, 32.5825, 'Kampala'),
+            'NAIROBI': (-1.2921, 36.8219, 'Nairobi'),
+            'MOMBASA': (-4.0435, 39.6682, 'Mombasa'),
+            'DAR': (-6.7924, 39.2083, 'Dar es Salaam'),
+            'ARUSHA': (-3.3869, 36.6830, 'Arusha'),
+            'KISUMU': (-0.1022, 34.7617, 'Kisumu'),
+        },
+        'seasons': {
+            "Hot Season (Dec-Feb)": [12, 1, 2],
+            "Long Rains (Mar-May)": [3, 4, 5],
+            "Cool Dry (Jun-Aug)": [6, 7, 8],
+            "Short Rains (Sep-Nov)": [9, 10, 11],
+            "Annual Average": list(range(1, 13))
+        }
+    },
+    'madagascar': {
+        'name': 'Madagascar',
+        'full_name': 'Madagascar',
+        'file': 'era5_madagascar_1974_2024.nc',
+        'area': [-11.5, 43, -26, 51],  # [North, West, South, East]
+        'cities': {
+            'ANTANANARIVO': (-18.8792, 47.5079, 'Antananarivo'),
+            'TOAMASINA': (-18.1443, 49.3958, 'Toamasina'),
+            'MAHAJANGA': (-15.7167, 46.3167, 'Mahajanga'),
+            'FIANARANTSOA': (-21.4417, 47.0833, 'Fianarantsoa'),
+            'TOLIARA': (-23.3500, 43.6667, 'Toliara'),
+        },
+        'seasons': {
+            "Hot Wet (Dec-Feb)": [12, 1, 2],
+            "Autumn (Mar-May)": [3, 4, 5],
+            "Cool Dry (Jun-Aug)": [6, 7, 8],
+            "Spring (Sep-Nov)": [9, 10, 11],
+            "Annual Average": list(range(1, 13))
+        }
+    },
+    'brazil': {
+        'name': 'Brazil',
+        'full_name': 'Brazil',
+        'file': 'era5_brazil_1974_2024.nc',
+        'area': [6, -74, -34, -34],  # [North, West, South, East]
+        'cities': {
+            'SAO_PAULO': (-23.5505, -46.6333, 'São Paulo'),
+            'RIO': (-22.9068, -43.1729, 'Rio de Janeiro'),
+            'BRASILIA': (-15.7975, -47.8919, 'Brasília'),
+            'SALVADOR': (-12.9714, -38.5014, 'Salvador'),
+            'MANAUS': (-3.1190, -60.0217, 'Manaus'),
+            'RECIFE': (-8.0476, -34.8770, 'Recife'),
+            'BELEM': (-1.4558, -48.4902, 'Belém'),
+        },
+        'seasons': {
+            "Southern Summer (Dec-Feb)": [12, 1, 2],
+            "Autumn (Mar-May)": [3, 4, 5],
+            "Southern Winter (Jun-Aug)": [6, 7, 8],
+            "Spring (Sep-Nov)": [9, 10, 11],
+            "Annual Average": list(range(1, 13))
+        }
+    }
+}
+
 # Helper function for date-specific percentile calculation
 def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
     """
@@ -147,20 +213,20 @@ def process_era5_data(era5_file='era5_temperature_nc_1974_2024.nc'):
         
         # Get temperature (t2m) and convert K to °F
         temp = ds['t2m']
-        temp_f = (temp - 273.15) * 9/5 + 32
+        temp_c = temp - 273.15
         
         # Create a copy with proper time handling
-        temp_f = temp_f.copy()
+        temp_c = temp_c.copy()
         
         # Extract year and month from valid_time and add as new coordinates
-        years = temp_f['valid_time'].dt.year.values
-        months = temp_f['valid_time'].dt.month.values
+        years = temp_c['valid_time'].dt.year.values
+        months = temp_c['valid_time'].dt.month.values
         
         # Add year and month as coordinates (not dimensions)
-        temp_f.coords['year'] = ('valid_time', years)
-        temp_f.coords['month'] = ('valid_time', months)
+        temp_c.coords['year'] = ('valid_time', years)
+        temp_c.coords['month'] = ('valid_time', months)
         
-        return temp_f, ds
+        return temp_c, ds
         
     except Exception as e:
         st.error(f"Error loading ERA5 data: {str(e)}")
@@ -534,6 +600,207 @@ def add_state_borders(fig, lat_range=None, lon_range=None):
         st.warning(f"Could not load state borders: {e}")
         return fig
 
+def process_era5_data_for_region(era5_file):
+    """
+    Process ERA5 NetCDF for additional regions in Celsius
+    Handles both 'time' and 'valid_time' dimension names
+    """
+    try:
+        ds = xr.open_dataset(era5_file)
+        
+        # Get temperature and convert K to °C
+        temp = ds['t2m']
+        temp_c = temp - 273.15
+        temp_c = temp_c.copy()
+        
+        # Determine time dimension name
+        time_dim = 'valid_time' if 'valid_time' in temp_c.dims else 'time'
+        
+        years = temp_c[time_dim].dt.year.values
+        months = temp_c[time_dim].dt.month.values
+        
+        temp_c.coords['year'] = (time_dim, years)
+        temp_c.coords['month'] = (time_dim, months)
+        temp_c.attrs['time_dim'] = time_dim
+        
+        return temp_c, ds
+        
+    except Exception as e:
+        st.error(f"Error loading ERA5 data: {str(e)}")
+        return None, None
+
+
+def calculate_temperature_trends_region(temp_data, months=[6,7,8]):
+    """
+    Calculate temperature change (slope) for each grid cell in °C/decade
+    Works with any region's ERA5 data
+    """
+    try:
+        time_dim = temp_data.attrs.get('time_dim', 'valid_time')
+        if time_dim not in temp_data.dims:
+            time_dim = 'time' if 'time' in temp_data.dims else 'valid_time'
+        
+        month_mask = temp_data['month'].isin(months)
+        seasonal_temp = temp_data.where(month_mask, drop=True)
+        annual_avg = seasonal_temp.groupby('year').mean(dim=time_dim)
+        
+        lats = annual_avg.latitude.values
+        lons = annual_avg.longitude.values
+        years = annual_avg.year.values
+        
+        slopes = np.full((len(lats), len(lons)), np.nan)
+        r_squared = np.full((len(lats), len(lons)), np.nan)
+        p_values = np.full((len(lats), len(lons)), np.nan)
+        
+        progress_bar = st.progress(0)
+        total_cells = len(lats) * len(lons)
+        processed = 0
+        
+        for i in range(len(lats)):
+            for j in range(len(lons)):
+                temps = annual_avg.isel(latitude=i, longitude=j).values
+                
+                if not np.isnan(temps).any() and len(temps) > 2:
+                    try:
+                        slope, intercept, r_val, p_val, std_err = stats.linregress(years, temps)
+                        slopes[i, j] = slope * 10  # °C per decade
+                        r_squared[i, j] = r_val ** 2
+                        p_values[i, j] = p_val
+                    except:
+                        pass
+                
+                processed += 1
+                if processed % 100 == 0:
+                    progress_bar.progress(min(processed / total_cells, 1.0))
+        
+        progress_bar.progress(1.0)
+        
+        return lats, lons, slopes, r_squared, p_values
+    
+    except Exception as e:
+        st.error(f"Error calculating trends: {str(e)}")
+        return None, None, None, None, None
+
+
+def get_temperature_snapshot_region(temp_data, year=2020, months=[6,7,8]):
+    """
+    Get average temperature for a specific year and season in °C
+    Works with any region's ERA5 data
+    """
+    try:
+        time_dim = temp_data.attrs.get('time_dim', 'valid_time')
+        if time_dim not in temp_data.dims:
+            time_dim = 'time' if 'time' in temp_data.dims else 'valid_time'
+        
+        year_mask = temp_data['year'] == year
+        month_mask = temp_data['month'].isin(months)
+        
+        subset = temp_data.where(year_mask & month_mask, drop=True)
+        
+        if len(subset[time_dim]) == 0:
+            return None, None, None
+        
+        avg_temp = subset.mean(dim=time_dim)
+        
+        lats = avg_temp.latitude.values
+        lons = avg_temp.longitude.values
+        temps = avg_temp.values
+        
+        return lats, lons, temps
+    
+    except Exception as e:
+        st.error(f"Error getting snapshot: {str(e)}")
+        return None, None, None
+
+
+def create_heatmap_with_borders(lats_mesh, lons_mesh, data, station_coords=None,
+                                 title='', cbar_label='', cmap='coolwarm',
+                                 vmin=None, vmax=None, diverging=False, dpi=150,
+                                 geojson_url=None, target_countries=None):
+    """
+    Create a publication-quality matplotlib heatmap with country/state borders
+    Uses cool colors (blue) for cool temperatures, warm colors (red) for warm temps
+    """
+    fig, ax = plt.subplots(figsize=(12, 8), dpi=dpi)
+    
+    if diverging and vmin is None and vmax is None:
+        abs_max = np.nanmax(np.abs(data))
+        vmin = -abs_max
+        vmax = abs_max
+    
+    contour = ax.contourf(lons_mesh, lats_mesh, data, 
+                          levels=50, cmap=cmap, 
+                          vmin=vmin, vmax=vmax)
+    
+    cbar = plt.colorbar(contour, ax=ax, orientation='vertical', 
+                        pad=0.02, fraction=0.046)
+    cbar.set_label(cbar_label, fontsize=11, weight='bold')
+    cbar.ax.tick_params(labelsize=10)
+    
+    # Add country borders if URL provided
+    if geojson_url:
+        try:
+            import json
+            import urllib.request
+            
+            with urllib.request.urlopen(geojson_url, timeout=15) as response:
+                borders = json.load(response)
+            
+            lat_min, lat_max = np.nanmin(lats_mesh), np.nanmax(lats_mesh)
+            lon_min, lon_max = np.nanmin(lons_mesh), np.nanmax(lons_mesh)
+            
+            for feature in borders['features']:
+                if target_countries:
+                    name = feature['properties'].get('name', '') or feature['properties'].get('ADMIN', '')
+                    if name not in target_countries:
+                        continue
+                
+                geom_type = feature['geometry']['type']
+                
+                if geom_type == 'Polygon':
+                    for ring in feature['geometry']['coordinates']:
+                        lons_border = [c[0] for c in ring]
+                        lats_border = [c[1] for c in ring]
+                        if any(lat_min <= lat <= lat_max and lon_min <= lon <= lon_max 
+                               for lat, lon in zip(lats_border, lons_border)):
+                            ax.plot(lons_border, lats_border, 'k-', linewidth=0.8, alpha=0.6, zorder=3)
+                
+                elif geom_type == 'MultiPolygon':
+                    for polygon in feature['geometry']['coordinates']:
+                        for ring in polygon:
+                            lons_border = [c[0] for c in ring]
+                            lats_border = [c[1] for c in ring]
+                            if any(lat_min <= lat <= lat_max and lon_min <= lon <= lon_max 
+                                   for lat, lon in zip(lats_border, lons_border)):
+                                ax.plot(lons_border, lats_border, 'k-', linewidth=0.8, alpha=0.6, zorder=3)
+        except Exception as e:
+            pass  # Continue without borders
+    
+    # Add city markers
+    if station_coords:
+        for code, (lat, lon, name) in station_coords.items():
+            ax.plot(lon, lat, 'ko', markersize=8, markeredgecolor='white', 
+                    markeredgewidth=2, zorder=4)
+            
+            txt = ax.text(lon, lat + 0.4, name, fontsize=9, ha='center', 
+                         weight='bold', zorder=5)
+            txt.set_path_effects([path_effects.Stroke(linewidth=3, foreground='white'),
+                                  path_effects.Normal()])
+    
+    ax.set_xlabel('Longitude', fontsize=12, weight='bold')
+    ax.set_ylabel('Latitude', fontsize=12, weight='bold')
+    ax.set_title(title, fontsize=14, weight='bold', pad=15)
+    ax.tick_params(labelsize=10)
+    ax.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
+    
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlim([np.nanmin(lons_mesh), np.nanmax(lons_mesh)])
+    ax.set_ylim([np.nanmin(lats_mesh), np.nanmax(lats_mesh)])
+    
+    plt.tight_layout()
+    
+    return fig
+
 # Page configuration
 st.set_page_config(
     page_title="NC Heat Index Analysis",
@@ -641,12 +908,13 @@ with st.spinner('Loading data...'):
 selected_stations = list(dfs.keys())
 
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5= st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
     "WWA Comparison",
-    "Regional Heatmap"
+    "Regional Heatmap",
+    "Additional Heat Maps"
 ])
 
 # TAB 1: METHODOLOGY
@@ -780,12 +1048,12 @@ with tab1:
         # Summary stats
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Mean", f"{mean_val:.1f}°F")
+            st.metric("Mean", f"{mean_val:.1f}°C")
         with col2:
-            st.metric("98th Percentile", f"{p98:.1f}°F")
+            st.metric("98th Percentile", f"{p98:.1f}°C")
         with col3:
             temp_range = demo_data['heatindexmax2m'].max() - demo_data['heatindexmax2m'].min()
-            st.metric("Temperature Range", f"{temp_range:.1f}°F")
+            st.metric("Temperature Range", f"{temp_range:.1f}°C")
         
         # Create summer distribution
         fig_summer = go.Figure()
@@ -819,7 +1087,7 @@ with tab1:
             line_dash="dash", 
             line_color="red", 
             line_width=3,
-            annotation_text=f"98th Percentile: {p98:.1f}°F",
+            annotation_text=f"98th Percentile: {p98:.1f}°C",
             annotation_position="top"
         )
         
@@ -829,13 +1097,13 @@ with tab1:
             line_dash="dot", 
             line_color="green", 
             line_width=2,
-            annotation_text=f"Mean: {mean_val:.1f}°F",
+            annotation_text=f"Mean: {mean_val:.1f}°C",
             annotation_position="bottom"
         )
         
         fig_summer.update_layout(
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
-            xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°F)",
+            xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
             showlegend=False,
@@ -845,7 +1113,7 @@ with tab1:
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")
         
         st.info(f"""
-        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°F is an extreme heat day.
+        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C is an extreme heat day.
         """)
     
     # ===== WINTER DISTRIBUTION =====
@@ -874,12 +1142,12 @@ with tab1:
         # Summary stats
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Mean", f"{mean_val_winter:.1f}°F")
+            st.metric("Mean", f"{mean_val_winter:.1f}°C")
         with col2:
-            st.metric("2nd Percentile", f"{p2:.1f}°F")
+            st.metric("2nd Percentile", f"{p2:.1f}°C")
         with col3:
             temp_range_winter = winter_data['heatindexmin2m'].max() - winter_data['heatindexmin2m'].min()
-            st.metric("Temperature Range", f"{temp_range_winter:.1f}°F")
+            st.metric("Temperature Range", f"{temp_range_winter:.1f}°C")
         
         # Create winter distribution
         fig_winter = go.Figure()
@@ -913,7 +1181,7 @@ with tab1:
             line_dash="dash", 
             line_color="blue", 
             line_width=3,
-            annotation_text=f"2nd Percentile: {p2:.1f}°F",
+            annotation_text=f"2nd Percentile: {p2:.1f}°C",
             annotation_position="top"
         )
         
@@ -923,13 +1191,13 @@ with tab1:
             line_dash="dot", 
             line_color="green", 
             line_width=2,
-            annotation_text=f"Mean: {mean_val_winter:.1f}°F",
+            annotation_text=f"Mean: {mean_val_winter:.1f}°C",
             annotation_position="bottom"
         )
         
         fig_winter.update_layout(
             title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(winter_data)} years of data (1974-2024)</sub>",
-            xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°F)",
+            xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
             showlegend=False,
@@ -939,7 +1207,7 @@ with tab1:
         st.plotly_chart(fig_winter, use_container_width=True, key="winter_methodology")
         
         st.info(f"""
-        **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}°F is an extreme cold day
+        **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}°C is an extreme cold day
         """)
     
     # Flow diagram
@@ -2036,7 +2304,7 @@ c.retrieve(
             lats_mesh, lons_mesh, slopes_plot,
             station_coords=station_coords,
             title=f'Temperature Change: {season_choice} (1974-2024)\nRate of warming/cooling across Southeast US',
-            cbar_label='Temperature Change (°F/decade)',
+            cbar_label='Temperature Change (°C/decade)',
             cmap='RdYlBu_r',
             vmin=-0.5,
             vmax=1.5,
@@ -2053,11 +2321,11 @@ c.retrieve(
         
         with col1:
             mean_change = np.nanmean(slopes)
-            st.metric("Regional Average Change", f"{mean_change:.3f}°F/decade")
+            st.metric("Regional Average Change", f"{mean_change:.3f}°C/decade")
         
         with col2:
             max_change = np.nanmax(slopes)
-            st.metric("Maximum Warming", f"{max_change:.3f}°F/decade")
+            st.metric("Maximum Warming", f"{max_change:.3f}°C/decade")
         
         with col3:
             significant = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
@@ -2131,8 +2399,8 @@ c.retrieve(
             lats_mesh, lons_mesh, temps_plot,
             station_coords=station_coords,
             title=f'Temperature Distribution: {season_choice} {selected_year}',
-            cbar_label='Temperature (°F)',
-            cmap='hot',
+            cbar_label='Temperature (°C)',
+            cmap='coolwarm',
             diverging=False,
             dpi=150
         )
@@ -2143,11 +2411,11 @@ c.retrieve(
         # Statistics
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Regional Average", f"{np.nanmean(temps):.1f}°F")
+            st.metric("Regional Average", f"{np.nanmean(temps):.1f}°C")
         with col2:
-            st.metric("Warmest Location", f"{np.nanmax(temps):.1f}°F")
+            st.metric("Warmest Location", f"{np.nanmax(temps):.1f}°C")
         with col3:
-            st.metric("Coolest Location", f"{np.nanmin(temps):.1f}°F")
+            st.metric("Coolest Location", f"{np.nanmin(temps):.1f}°C")
     
     # =================================================================
     # TYPE 3: COMPARE TWO YEARS
@@ -2221,7 +2489,7 @@ c.retrieve(
             lats_mesh, lons_mesh, diff_plot,
             station_coords=station_coords,  # Show stations
             title=f'Temperature Difference: {season_choice}\n{year2} minus {year1}',
-            cbar_label='Temperature Difference (°F)',
+            cbar_label='Temperature Difference (°C)',
             cmap='RdBu_r',
             diverging=True,
             dpi=150
@@ -2238,15 +2506,15 @@ c.retrieve(
         with col1:
             st.metric(
                 "Average Difference", 
-                f"{mean_diff:.2f}°F",
+                f"{mean_diff:.2f}°C",
                 delta=f"{year2} vs {year1}"
             )
         
         with col2:
-            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff):.1f}°F")
+            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff):.1f}°C")
         
         with col3:
-            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff):.1f}°F")
+            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff):.1f}°C")
         
         with col4:
             pct_warmer = np.sum(temp_diff > 0) / np.sum(~np.isnan(temp_diff)) * 100
@@ -2256,6 +2524,339 @@ c.retrieve(
             st.success(f"**Overall:** {year2} was {abs(mean_diff):.2f}°F warmer than {year1} on average")
         else:
             st.info(f"❄️ **Overall:** {year2} was {abs(mean_diff):.2f}°F cooler than {year1} on average")
+
+with tab6:
+    st.header("Additional Regional Heat Maps")
+    
+    st.markdown("""
+    Explore temperature patterns and trends across different regions of the world.
+    Select a region below to view its heat map analysis.
+    """)
+    
+    # Region selector
+    region_key = st.selectbox(
+        "Select Region:",
+        list(ADDITIONAL_REGIONS.keys()),
+        format_func=lambda x: ADDITIONAL_REGIONS[x]['full_name']
+    )
+    
+    region = ADDITIONAL_REGIONS[region_key]
+    
+    st.markdown(f"### {region['full_name']}")
+    
+    # Check if data file exists
+    era5_file_region = region['file']
+    
+    if not os.path.exists(era5_file_region):
+        st.warning(f"""
+        ### ERA5 Data Not Found for {region['name']}
+        
+        To use this feature, please download ERA5 monthly temperature data:
+        
+        1. **Run the download script:** `python download_era5_additional_regions.py`
+        2. **Or download manually from:** https://cds.climate.copernicus.eu/
+        3. **Region coordinates:** {region['area']} [North, West, South, East]
+        4. **Save as:** `{era5_file_region}` in the same directory as app.py
+        """)
+        
+        with st.expander("📖 View Download Code"):
+            st.code(f"""
+import cdsapi
+
+c = cdsapi.Client()
+
+c.retrieve(
+    'reanalysis-era5-single-levels-monthly-means',
+    {{
+        'product_type': 'monthly_averaged_reanalysis',
+        'variable': '2m_temperature',
+        'year': [str(year) for year in range(1974, 2025)],
+        'month': [f'{{m:02d}}' for m in range(1, 13)],
+        'time': '00:00',
+        'area': {region['area']},  # [N, W, S, E]
+        'format': 'netcdf',
+    }},
+    '{era5_file_region}'
+)
+            """, language='python')
+        
+        st.stop()
+    
+    # Load ERA5 data for region
+    @st.cache_data
+    def load_region_data_cached(file_path):
+        return process_era5_data_for_region(file_path)
+    
+    with st.spinner(f'Loading {region["name"]} data...'):
+        temp_data_region, ds_region = load_region_data_cached(era5_file_region)
+    
+    if temp_data_region is None:
+        st.error("Failed to load ERA5 data. Please check the file format.")
+        st.stop()
+    
+    # City coordinates for this region
+    city_coords = region['cities']
+    
+    # Heatmap type selector
+    st.markdown("---")
+    map_type_region = st.radio(
+        "**Select Heatmap Type:**",
+        [
+            "Temperature Change (1974-2024 Trend)",
+            "Temperature Distribution (Specific Year)",
+            "Compare Two Years"
+        ],
+        key=f"heatmap_type_{region_key}"
+    )
+    
+    # GeoJSON URL for country borders
+    geojson_url = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
+    
+    # Target countries for each region
+    target_countries_map = {
+        'east_africa': ['Uganda', 'Kenya', 'Tanzania', 'Rwanda', 'Burundi', 'South Sudan', 'Ethiopia', 'Somalia'],
+        'madagascar': ['Madagascar'],
+        'brazil': ['Brazil', 'Argentina', 'Paraguay', 'Uruguay', 'Bolivia', 'Peru', 'Colombia', 'Venezuela', 'Guyana', 'Suriname', 'French Guiana']
+    }
+    target_countries = target_countries_map.get(region_key)
+    
+    # =================================================================
+    # TYPE 1: TEMPERATURE CHANGE (TREND)
+    # =================================================================
+    if map_type_region == "Temperature Change (1974-2024 Trend)":
+        st.markdown("""
+        ### Rate of Temperature Change (1974-2024)
+        
+        **Shows:** How fast each location is warming or cooling (degrees Celsius per decade)  
+        """)
+        
+        col1, col2 = st.columns([1, 3])
+        
+        with col1:
+            season_choice_region = st.selectbox(
+                "Select Season:",
+                list(region['seasons'].keys()),
+                key=f"trend_season_{region_key}"
+            )
+            months_region = region['seasons'][season_choice_region]
+        
+        with st.spinner('Calculating temperature trends...'):
+            lats_r, lons_r, slopes_r, r_squared_r, p_values_r = calculate_temperature_trends_region(
+                temp_data_region, months_region
+            )
+        
+        if slopes_r is None:
+            st.error("Failed to calculate trends")
+            st.stop()
+        
+        st.markdown("---")
+        with st.spinner('Creating map...'):
+            lats_plot_r, lons_plot_r, slopes_plot_r = interpolate_grid(lats_r, lons_r, slopes_r, factor=8)
+        
+        lons_mesh_r, lats_mesh_r = np.meshgrid(lons_plot_r, lats_plot_r)
+        
+        fig_region = create_heatmap_with_borders(
+            lats_mesh_r, lons_mesh_r, slopes_plot_r,
+            station_coords=city_coords,
+            title=f'Temperature Change: {season_choice_region} (1974-2024)\\n{region["full_name"]}',
+            cbar_label='Temperature Change (°C/decade)',
+            cmap='RdYlBu_r',
+            vmin=-0.3,
+            vmax=0.8,
+            diverging=True,
+            dpi=150,
+            geojson_url=geojson_url,
+            target_countries=target_countries
+        )
+        
+        st.pyplot(fig_region, use_container_width=True)
+        plt.close(fig_region)
+        
+        # Statistics
+        st.markdown("### Trend Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            mean_change_r = np.nanmean(slopes_r)
+            st.metric("Regional Average Change", f"{mean_change_r:.3f}°C/decade")
+        
+        with col2:
+            max_change_r = np.nanmax(slopes_r)
+            st.metric("Maximum Warming", f"{max_change_r:.3f}°C/decade")
+        
+        with col3:
+            significant_r = np.sum(p_values_r < 0.05) / np.sum(~np.isnan(p_values_r)) * 100
+            st.metric("Significant Trends (p<0.05)", f"{significant_r:.1f}%")
+        
+        with col4:
+            mean_r2_r = np.nanmean(r_squared_r)
+            st.metric("Average R²", f"{mean_r2_r:.3f}")
+    
+    # =================================================================
+    # TYPE 2: TEMPERATURE DISTRIBUTION (SPECIFIC YEAR)
+    # =================================================================
+    elif map_type_region == "Temperature Distribution (Specific Year)":
+        st.markdown("""
+        ### Spatial Temperature Patterns for a Specific Year
+        
+        **Shows:** Actual temperature distribution across the region  
+        **Purpose:** Explore how spatial patterns vary from year to year
+        """)
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            selected_year_region = st.selectbox(
+                "Select Year:",
+                list(range(1974, 2024)),
+                index=49,
+                key=f"snapshot_year_{region_key}"
+            )
+        
+        with col2:
+            season_choice_region = st.selectbox(
+                "Select Season:",
+                list(region['seasons'].keys()),
+                key=f"snapshot_season_{region_key}"
+            )
+            months_region = region['seasons'][season_choice_region]
+        
+        with st.spinner(f'Loading {season_choice_region} {selected_year_region} data...'):
+            lats_r, lons_r, temps_r = get_temperature_snapshot_region(temp_data_region, selected_year_region, months_region)
+        
+        if temps_r is None:
+            st.error(f"No data available for {season_choice_region} {selected_year_region}")
+            st.stop()
+        
+        st.markdown("---")
+        with st.spinner('Creating map...'):
+            lats_plot_r, lons_plot_r, temps_plot_r = interpolate_grid(lats_r, lons_r, temps_r, factor=8)
+        
+        lons_mesh_r, lats_mesh_r = np.meshgrid(lons_plot_r, lats_plot_r)
+        
+        # Use 'coolwarm' - blue for cool, red for warm (intuitive!)
+        fig_region = create_heatmap_with_borders(
+            lats_mesh_r, lons_mesh_r, temps_plot_r,
+            station_coords=city_coords,
+            title=f'Temperature Distribution: {season_choice_region} {selected_year_region}\\n{region["full_name"]}',
+            cbar_label='Temperature (°C)',
+            cmap='coolwarm',
+            diverging=False,
+            dpi=150,
+            geojson_url=geojson_url,
+            target_countries=target_countries
+        )
+        
+        st.pyplot(fig_region, use_container_width=True)
+        plt.close(fig_region)
+        
+        # Statistics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Regional Average", f"{np.nanmean(temps_r):.1f}°C")
+        with col2:
+            st.metric("Warmest Location", f"{np.nanmax(temps_r):.1f}°C")
+        with col3:
+            st.metric("Coolest Location", f"{np.nanmin(temps_r):.1f}°C")
+    
+    # =================================================================
+    # TYPE 3: COMPARE TWO YEARS
+    # =================================================================
+    else:  # Compare Two Years
+        st.markdown("""
+        ### Compare Temperature Patterns Between Two Years
+        
+        **Shows:** The difference between two years (Year 2 minus Year 1)  
+        """)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            year1_region = st.selectbox(
+                "First Year:", 
+                list(range(1974, 2024)), 
+                index=0, 
+                key=f"compare_year1_{region_key}"
+            )
+        
+        with col2:
+            year2_region = st.selectbox(
+                "Second Year:", 
+                list(range(1974, 2024)), 
+                index=49, 
+                key=f"compare_year2_{region_key}"
+            )
+        
+        with col3:
+            season_choice_region = st.selectbox(
+                "Season:",
+                list(region['seasons'].keys()),
+                key=f"compare_season_{region_key}"
+            )
+            months_region = region['seasons'][season_choice_region]
+        
+        if year1_region == year2_region:
+            st.warning("⚠️ Please select two different years to compare.")
+            st.stop()
+        
+        with st.spinner('Loading data...'):
+            lats1_r, lons1_r, temps1_r = get_temperature_snapshot_region(temp_data_region, year1_region, months_region)
+            lats2_r, lons2_r, temps2_r = get_temperature_snapshot_region(temp_data_region, year2_region, months_region)
+            
+            if temps1_r is None or temps2_r is None:
+                st.error("Data not available for one or both selected years/seasons")
+                st.stop()
+            
+            temp_diff_r = temps2_r - temps1_r
+        
+        st.markdown("---")
+        with st.spinner('Creating map...'):
+            lats_plot_r, lons_plot_r, diff_plot_r = interpolate_grid(lats1_r, lons1_r, temp_diff_r, factor=8)
+        
+        lons_mesh_r, lats_mesh_r = np.meshgrid(lons_plot_r, lats_plot_r)
+        
+        fig_region = create_heatmap_with_borders(
+            lats_mesh_r, lons_mesh_r, diff_plot_r,
+            station_coords=city_coords,
+            title=f'Temperature Difference: {season_choice_region}\\n{year2_region} minus {year1_region} | {region["full_name"]}',
+            cbar_label='Temperature Difference (°C)',
+            cmap='RdBu_r',
+            diverging=True,
+            dpi=150,
+            geojson_url=geojson_url,
+            target_countries=target_countries
+        )
+        
+        st.pyplot(fig_region, use_container_width=True)
+        plt.close(fig_region)
+        
+        # Statistics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        mean_diff_r = np.nanmean(temp_diff_r)
+        
+        with col1:
+            st.metric(
+                "Average Difference", 
+                f"{mean_diff_r:.2f}°C",
+                delta=f"{year2_region} vs {year1_region}"
+            )
+        
+        with col2:
+            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff_r):.1f}°C")
+        
+        with col3:
+            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff_r):.1f}°C")
+        
+        with col4:
+            pct_warmer_r = np.sum(temp_diff_r > 0) / np.sum(~np.isnan(temp_diff_r)) * 100
+            st.metric("% Area Warmer", f"{pct_warmer_r:.1f}%")
+        
+        if mean_diff_r > 0:
+            st.success(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C warmer than {year1_region} on average")
+        else:
+            st.info(f"❄️ **Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C cooler than {year1_region} on average")
+
 # Footer
 st.markdown("---")
 st.markdown("""

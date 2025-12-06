@@ -883,6 +883,7 @@ def load_data():
         for col in ['heatindexmax2m', 'heatindexmin2m', 'heatindexavg2m']:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = (df[col] - 32) * 5/9  # Convert F to C
         
         # Handle datetime
         if 'datetime' in df.columns:

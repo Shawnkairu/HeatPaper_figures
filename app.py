@@ -211,7 +211,7 @@ def process_era5_data(era5_file='era5_temperature_nc_1974_2024.nc'):
         # Open dataset
         ds = xr.open_dataset(era5_file)
         
-        # Get temperature (t2m) and convert K to °F
+        # Get temperature (t2m) and convert K to °C
         temp = ds['t2m']
         temp_c = temp - 273.15
         
@@ -2327,13 +2327,7 @@ c.retrieve(
             max_change = np.nanmax(slopes)
             st.metric("Maximum Warming", f"{max_change:.3f}°C/decade")
         
-        with col3:
-            significant = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
-            st.metric("Significant Trends (p<0.05)", f"{significant:.1f}%")
-        
-        with col4:
-            mean_r2 = np.nanmean(r_squared)
-            st.metric("Average R²", f"{mean_r2:.3f}")
+
         
     
     # =================================================================
@@ -2684,13 +2678,6 @@ c.retrieve(
             max_change_r = np.nanmax(slopes_r)
             st.metric("Maximum Warming", f"{max_change_r:.3f}°C/decade")
         
-        with col3:
-            significant_r = np.sum(p_values_r < 0.05) / np.sum(~np.isnan(p_values_r)) * 100
-            st.metric("Significant Trends (p<0.05)", f"{significant_r:.1f}%")
-        
-        with col4:
-            mean_r2_r = np.nanmean(r_squared_r)
-            st.metric("Average R²", f"{mean_r2_r:.3f}")
     
     # =================================================================
     # TYPE 2: TEMPERATURE DISTRIBUTION (SPECIFIC YEAR)

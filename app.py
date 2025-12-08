@@ -13,6 +13,7 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
+st.sidebar.write(f" Data folder: {folder}")
 # Load data function
 @st.cache_data
 def load_data():

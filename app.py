@@ -13,7 +13,6 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
-st.sidebar.write(f" Data folder: {folder}")
 # Load data function
 @st.cache_data
 def load_data():
@@ -82,6 +81,8 @@ def load_data():
     
     all_data = pd.concat(dfs.values(), ignore_index=True)
     return dfs, all_data
+    
+    st.sidebar.write(f" Data folder: {folder}")
 
 # Load data
 with st.spinner('Loading data...'):

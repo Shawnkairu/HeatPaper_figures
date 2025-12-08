@@ -18,7 +18,7 @@ import matplotlib.patheffects as path_effects
 def load_data():
     
     project_folder = 'filtered_1974_2024'
-    local_folder = 'heat_index_files'
+    # local_folder = 'heat_index_files'
     
   
     if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
@@ -31,16 +31,16 @@ def load_data():
             'KCLT': 'KLCTheatindex19742024.xlsx',
             'KRDU': 'KRDUheatindex19742024.xlsx',
         }
-    else:
-        folder = local_folder
-        filenames = {
-            'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
-            'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
-            'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
-            'KILM': 'KILM-heatindex-1974-2024.xlsx',
-            'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
-            'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
-        }
+    # else:
+    #     folder = local_folder
+    #     filenames = {
+    #         'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
+    #         'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
+    #         'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
+    #         'KILM': 'KILM-heatindex-1974-2024.xlsx',
+    #         'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
+    #         'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
+    #     }
     
     station_names = {
         'KAVL': 'Asheville (Mountains)',

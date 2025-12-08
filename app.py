@@ -837,11 +837,11 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 # Load data function
 @st.cache_data
 def load_data():
-    # Try project directory first, then fall back to local folder
+    
     project_folder = 'filtered_1974_2024'
     local_folder = 'heat_index_files'
     
-    # Determine which folder to use
+  
     if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
         folder = project_folder
         filenames = {

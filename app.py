@@ -13,6 +13,109 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
+# Load data function
+@st.cache_data
+def load_data():
+    
+    project_folder = 'filtered_1974_2024'
+    local_folder = 'heat_index_files'
+    
+  
+    if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
+        folder = project_folder
+        filenames = {
+            'KAVL': 'KAVLheatindex19742024.xlsx',
+            'KGSO': 'KGSOheatindex19742024.xlsx',
+            'KHSE': 'KHSEheatindex19742024.xlsx',
+            'KILM': 'KILMheatindex19742024.xlsx',
+            'KCLT': 'KLCTheatindex19742024.xlsx',
+            'KRDU': 'KRDUheatindex19742024.xlsx',
+        }
+    else:
+        folder = local_folder
+        filenames = {
+            'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
+            'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
+            'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
+            'KILM': 'KILM-heatindex-1974-2024.xlsx',
+            'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
+            'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
+        }
+    
+    station_names = {
+        'KAVL': 'Asheville (Mountains)',
+        'KGSO': 'Greensboro (Piedmont)',
+        'KHSE': 'Cape Hatteras (Coastal)',
+        'KILM': 'Wilmington (Coastal)',
+        'KCLT': 'Charlotte (Piedmont)',
+        'KRDU': 'Raleigh-Durham (Piedmont)',
+    }
+    
+    dfs = {}
+    for station, file in filenames.items():
+        path = os.path.join(folder, file)
+        df = pd.read_excel(path)
+        df['station'] = station
+        df['station_name'] = station_names[station]
+        
+        # Convert heat index columns to numeric
+        for col in ['heatindexmax2m', 'heatindexmin2m', 'heatindexavg2m']:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+                df[col] = (df[col] - 32) * 5/9  # Convert F to C
+        
+        # Handle datetime
+        if 'datetime' in df.columns:
+            df['datetime'] = pd.to_datetime(df['datetime'])
+        elif 'date' in df.columns:
+            df['datetime'] = pd.to_datetime(df['date'])
+        
+        df['year'] = df['datetime'].dt.year
+        df['month'] = df['datetime'].dt.month
+        df['month_day'] = df['datetime'].dt.strftime('%m-%d')
+        df['season'] = df['month'].apply(lambda x: 'Winter' if x in [12,1,2] 
+                                          else 'Spring' if x in [3,4,5]
+                                          else 'Summer' if x in [6,7,8]
+                                          else 'Fall')
+        dfs[station] = df
+    
+    all_data = pd.concat(dfs.values(), ignore_index=True)
+    return dfs, all_data
+
+# Load data
+with st.spinner('Loading data...'):
+    dfs, all_data = load_data()
+selected_stations = list(dfs.keys())
+
+# Helper function for date-specific percentile calculation
+def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
+    """
+    Calculate percentile thresholds for each calendar date (month-day combination)
+    Args:
+        df: DataFrame with datetime column and heat index data
+        column_name: 'heatindexmax2m' or 'heatindexmin2m'
+        percentile: The percentile to calculate (0.98 for 98th, 0.02 for 2nd)
+    Returns:
+        DataFrame with date-specific thresholds and extreme event flags
+    """
+    df = df.copy()
+    df['month_day'] = df['datetime'].dt.strftime('%m-%d')
+    
+    # Calculate percentile for each unique date
+    date_thresholds = df.groupby('month_day')[column_name].quantile(percentile).reset_index()
+    date_thresholds.columns = ['month_day', f'threshold_{percentile}']
+    
+    # Merge thresholds back to original data
+    df = df.merge(date_thresholds, on='month_day', how='left')
+    
+    # Flag extreme events
+    if percentile > 0.5:  # For 98th percentile (heat)
+        df[f'extreme_event'] = df[column_name] > df[f'threshold_{percentile}']
+    else:  # For 2nd percentile (cold)
+        df[f'extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
+    
+    return df
+
 ADDITIONAL_REGIONS = {
     'east_africa': {
         'name': 'East Africa',
@@ -79,34 +182,7 @@ ADDITIONAL_REGIONS = {
     }
 }
 
-# Helper function for date-specific percentile calculation
-def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
-    """
-    Calculate percentile thresholds for each calendar date (month-day combination)
-    Args:
-        df: DataFrame with datetime column and heat index data
-        column_name: 'heatindexmax2m' or 'heatindexmin2m'
-        percentile: The percentile to calculate (0.98 for 98th, 0.02 for 2nd)
-    Returns:
-        DataFrame with date-specific thresholds and extreme event flags
-    """
-    df = df.copy()
-    df['month_day'] = df['datetime'].dt.strftime('%m-%d')
-    
-    # Calculate percentile for each unique date
-    date_thresholds = df.groupby('month_day')[column_name].quantile(percentile).reset_index()
-    date_thresholds.columns = ['month_day', f'threshold_{percentile}']
-    
-    # Merge thresholds back to original data
-    df = df.merge(date_thresholds, on='month_day', how='left')
-    
-    # Flag extreme events
-    if percentile > 0.5:  # For 98th percentile (heat)
-        df[f'extreme_event'] = df[column_name] > df[f'threshold_{percentile}']
-    else:  # For 2nd percentile (cold)
-        df[f'extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
-    
-    return df
+
 
 def identify_waves(df, column_name='extreme_event', min_consecutive=2):
     """
@@ -834,79 +910,7 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 # not raw temperature. Heat index better represents how hot it actually feels and the health risks to humans.
 # """)
 
-# Load data function
-@st.cache_data
-def load_data():
-    
-    project_folder = 'filtered_1974_2024'
-    local_folder = 'heat_index_files'
-    
-  
-    if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
-        folder = project_folder
-        filenames = {
-            'KAVL': 'KAVLheatindex19742024.xlsx',
-            'KGSO': 'KGSOheatindex19742024.xlsx',
-            'KHSE': 'KHSEheatindex19742024.xlsx',
-            'KILM': 'KILMheatindex19742024.xlsx',
-            'KCLT': 'KLCTheatindex19742024.xlsx',
-            'KRDU': 'KRDUheatindex19742024.xlsx',
-        }
-    else:
-        folder = local_folder
-        filenames = {
-            'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
-            'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
-            'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
-            'KILM': 'KILM-heatindex-1974-2024.xlsx',
-            'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
-            'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
-        }
-    
-    station_names = {
-        'KAVL': 'Asheville (Mountains)',
-        'KGSO': 'Greensboro (Piedmont)',
-        'KHSE': 'Cape Hatteras (Coastal)',
-        'KILM': 'Wilmington (Coastal)',
-        'KCLT': 'Charlotte (Piedmont)',
-        'KRDU': 'Raleigh-Durham (Piedmont)',
-    }
-    
-    dfs = {}
-    for station, file in filenames.items():
-        path = os.path.join(folder, file)
-        df = pd.read_excel(path)
-        df['station'] = station
-        df['station_name'] = station_names[station]
-        
-        # Convert heat index columns to numeric
-        for col in ['heatindexmax2m', 'heatindexmin2m', 'heatindexavg2m']:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-                df[col] = (df[col] - 32) * 5/9  # Convert F to C
-        
-        # Handle datetime
-        if 'datetime' in df.columns:
-            df['datetime'] = pd.to_datetime(df['datetime'])
-        elif 'date' in df.columns:
-            df['datetime'] = pd.to_datetime(df['date'])
-        
-        df['year'] = df['datetime'].dt.year
-        df['month'] = df['datetime'].dt.month
-        df['month_day'] = df['datetime'].dt.strftime('%m-%d')
-        df['season'] = df['month'].apply(lambda x: 'Winter' if x in [12,1,2] 
-                                          else 'Spring' if x in [3,4,5]
-                                          else 'Summer' if x in [6,7,8]
-                                          else 'Fall')
-        dfs[station] = df
-    
-    all_data = pd.concat(dfs.values(), ignore_index=True)
-    return dfs, all_data
 
-# Load data
-with st.spinner('Loading data...'):
-    dfs, all_data = load_data()
-selected_stations = list(dfs.keys())
 
 # Tabs for different visualizations
 tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([

@@ -196,49 +196,49 @@ def identify_waves(df, column_name='extreme_event', min_consecutive=2):
     df['in_wave'] = df[column_name] & df['wave']
     return df
 
-def analyze_date_specific_exceedances(df, date_str):
-    """
-    Analyze how many times a specific calendar date exceeded/fell below its percentile threshold
+# def analyze_date_specific_exceedances(df, date_str):
+#     """
+#     Analyze how many times a specific calendar date exceeded/fell below its percentile threshold
     
-    Args:
-        df: DataFrame with extreme event flags and month_day column
-        date_str: String like '06-15' for June 15
+#     Args:
+#         df: DataFrame with extreme event flags and month_day column
+#         date_str: String like '06-15' for June 15
     
-    Returns:
-        Dictionary with analysis results
-    """
-    specific_date_data = df[df['month_day'] == date_str].copy()
+#     Returns:
+#         Dictionary with analysis results
+#     """
+#     specific_date_data = df[df['month_day'] == date_str].copy()
     
-    if len(specific_date_data) == 0:
-        return None
+#     if len(specific_date_data) == 0:
+#         return None
     
-    # Count exceedances
-    times_exceeded = specific_date_data['extreme_event'].sum() if 'extreme_event' in specific_date_data.columns else 0
-    total_years = len(specific_date_data)
-    percentage = (times_exceeded / total_years * 100) if total_years > 0 else 0
+#     # Count exceedances
+#     times_exceeded = specific_date_data['extreme_event'].sum() if 'extreme_event' in specific_date_data.columns else 0
+#     total_years = len(specific_date_data)
+#     percentage = (times_exceeded / total_years * 100) if total_years > 0 else 0
     
-    # Get threshold value (find column starting with 'threshold_')
-    threshold_cols = [col for col in specific_date_data.columns if col.startswith('threshold_')]
-    threshold = specific_date_data[threshold_cols[0]].iloc[0] if threshold_cols and len(specific_date_data) > 0 else None
+#     # Get threshold value (find column starting with 'threshold_')
+#     threshold_cols = [col for col in specific_date_data.columns if col.startswith('threshold_')]
+#     threshold = specific_date_data[threshold_cols[0]].iloc[0] if threshold_cols and len(specific_date_data) > 0 else None
     
-    # Get actual values from appropriate column
-    if 'heatindexmax2m' in specific_date_data.columns:
-        actual_values = specific_date_data['heatindexmax2m'].dropna()
-    elif 'heatindexmin2m' in specific_date_data.columns:
-        actual_values = specific_date_data['heatindexmin2m'].dropna()
-    else:
-        actual_values = pd.Series()
+#     # Get actual values from appropriate column
+#     if 'heatindexmax2m' in specific_date_data.columns:
+#         actual_values = specific_date_data['heatindexmax2m'].dropna()
+#     elif 'heatindexmin2m' in specific_date_data.columns:
+#         actual_values = specific_date_data['heatindexmin2m'].dropna()
+#     else:
+#         actual_values = pd.Series()
     
-    return {
-        'date': date_str,
-        'times_exceeded': int(times_exceeded),
-        'total_years': total_years,
-        'percentage': percentage,
-        'threshold': threshold,
-        'mean': actual_values.mean() if len(actual_values) > 0 else None,
-        'max': actual_values.max() if len(actual_values) > 0 else None,
-        'min': actual_values.min() if len(actual_values) > 0 else None
-    }
+#     return {
+#         'date': date_str,
+#         'times_exceeded': int(times_exceeded),
+#         'total_years': total_years,
+#         'percentage': percentage,
+#         'threshold': threshold,
+#         'mean': actual_values.mean() if len(actual_values) > 0 else None,
+#         'max': actual_values.max() if len(actual_values) > 0 else None,
+#         'min': actual_values.min() if len(actual_values) > 0 else None
+#     }
 
 
 def apply_loess_smoothing(x, y, frac=0.2):

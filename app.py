@@ -912,7 +912,7 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 # not raw temperature. Heat index better represents how hot it actually feels and the health risks to humans.
 # """)
 
-st.sidebar.write(f" Data folder: {folder}")
+
 
 # Tabs for different visualizations
 tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([

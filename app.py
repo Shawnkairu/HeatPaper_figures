@@ -2101,7 +2101,6 @@ with tab4:
     **Notes:**
     - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
     - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
-    - **WWA data availability:** Current WWA data covers 2005-2022. Data for 2023+ can be downloaded from the [Iowa Environmental Mesonet (IEM) VTEC archive](https://mesonet.agron.iastate.edu/request/gis/watchwarn.phtml)
     - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate. Also, WWAs in Wilmington are higher than heat events, but not sure why.
     
     ---
@@ -2140,7 +2139,7 @@ with tab4:
     for station, filepath in wwa_files.items():
         try:
             if not os.path.exists(filepath):
-                st.warning(f"âš ï¸ File not found: {filepath}")
+                st.warning(f"File not found: {filepath}")
                 wwa_data[station] = pd.DataFrame({'year': [], 'wwa_count': []})
                 continue
             
@@ -2156,7 +2155,7 @@ with tab4:
     
     if all(df.empty for df in wwa_data.values()):
         st.error(f"""
-        ### âŒ No WWA Data Loaded
+        ### No WWA Data Loaded
         Please update `wwa_file_path = "{wwa_file_path}"` to point to your WWA files.
         """)
         st.stop()
@@ -2203,7 +2202,7 @@ with tab4:
     
     # Create visualization matching the paper figure style
     st.markdown("### Number of Extreme Heat Days and WWAs Issued")
-    st.markdown("**March â€“ October (2005-2022)**")
+    st.markdown("**March - October (2005-2022)**")
     
     stations_to_plot = [s for s in selected_stations if not wwa_data[s].empty or s in extreme_heat_comparison]
     
@@ -2436,13 +2435,13 @@ with tab5:
         
         1. **Create account:** https://cds.climate.copernicus.eu/
         2. **Download dataset:** Monthly 2m temperature (1974-2024)
-        3. **Region:** North America (lat: 24-40Â°N, lon: -92 to -75Â°E)
+        3. **Region:** North America (lat: 24-40°N, lon: -92 to -75°E)
         4. **Save as:** `{era5_file}` in the same directory as app.py
         
         **Approximate file size:** 200-500 MB
         """)
         
-        with st.expander("ðŸ“– View Download Code"):
+        with st.expander("View Download Code"):
             st.code('''
 import cdsapi
 
@@ -2544,7 +2543,7 @@ c.retrieve(
         
         # Always apply high-quality smoothing
         st.markdown("---")
-        with st.spinner('ðŸŽ¨ Creating publication-quality map...'):
+        with st.spinner('Creating publication-quality map...'):
             lats_plot, lons_plot, slopes_plot = interpolate_grid(lats, lons, slopes, factor=8)
         
         # Create meshgrid for matplotlib
@@ -2555,7 +2554,7 @@ c.retrieve(
             lats_mesh, lons_mesh, slopes_plot,
             station_coords=station_coords,
             title=f'Temperature Change: {season_choice} (1974-2024)\nRate of warming/cooling across Southeast US',
-            cbar_label='Temperature Change (Â°C/decade)',
+            cbar_label='Temperature Change (°C/decade)',
             cmap='RdYlBu_r',
             vmin=-0.5,
             vmax=1.5,
@@ -2572,11 +2571,11 @@ c.retrieve(
         
         with col1:
             mean_change = np.nanmean(slopes)
-            st.metric("Regional Average Change", f"{mean_change:.3f}Â°C/decade")
+            st.metric("Regional Average Change", f"{mean_change:.3f}°C/decade")
         
         with col2:
             max_change = np.nanmax(slopes)
-            st.metric("Maximum Warming", f"{max_change:.3f}Â°C/decade")
+            st.metric("Maximum Warming", f"{max_change:.3f}°C/decade")
         
 
         
@@ -2644,7 +2643,7 @@ c.retrieve(
             lats_mesh, lons_mesh, temps_plot,
             station_coords=station_coords,
             title=f'Temperature Distribution: {season_choice} {selected_year}',
-            cbar_label='Temperature (Â°C)',
+            cbar_label='Temperature (°C)',
             cmap='coolwarm',
             diverging=False,
             dpi=150
@@ -2656,11 +2655,11 @@ c.retrieve(
         # Statistics
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Regional Average", f"{np.nanmean(temps):.1f}Â°C")
+            st.metric("Regional Average", f"{np.nanmean(temps):.1f}°C")
         with col2:
-            st.metric("Warmest Location", f"{np.nanmax(temps):.1f}Â°C")
+            st.metric("Warmest Location", f"{np.nanmax(temps):.1f}°C")
         with col3:
-            st.metric("Coolest Location", f"{np.nanmin(temps):.1f}Â°C")
+            st.metric("Coolest Location", f"{np.nanmin(temps):.1f}°C")
     
     # =================================================================
     # TYPE 3: COMPARE TWO YEARS
@@ -2706,7 +2705,7 @@ c.retrieve(
             months = season_map[season_choice]
         
         if year1 == year2:
-            st.warning("âš ï¸ Please select two different years to compare.")
+            st.warning("Please select two different years to compare.")
             st.stop()
         
         # Get both snapshots
@@ -2734,7 +2733,7 @@ c.retrieve(
             lats_mesh, lons_mesh, diff_plot,
             station_coords=station_coords,  # Show stations
             title=f'Temperature Difference: {season_choice}\n{year2} minus {year1}',
-            cbar_label='Temperature Difference (Â°C)',
+            cbar_label='Temperature Difference (°C)',
             cmap='RdBu_r',
             diverging=True,
             dpi=150
@@ -2751,24 +2750,24 @@ c.retrieve(
         with col1:
             st.metric(
                 "Average Difference", 
-                f"{mean_diff:.2f}Â°C",
+                f"{mean_diff:.2f}°C",
                 delta=f"{year2} vs {year1}"
             )
         
         with col2:
-            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff):.1f}Â°C")
+            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff):.1f}°C")
         
         with col3:
-            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff):.1f}Â°C")
+            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff):.1f}°C")
         
         with col4:
             pct_warmer = np.sum(temp_diff > 0) / np.sum(~np.isnan(temp_diff)) * 100
             st.metric("% Area Warmer", f"{pct_warmer:.1f}%")
         
         if mean_diff > 0:
-            st.success(f"**Overall:** {year2} was {abs(mean_diff):.2f}Â°F warmer than {year1} on average")
+            st.success(f"**Overall:** {year2} was {abs(mean_diff):.2f}°F warmer than {year1} on average")
         else:
-            st.info(f"â„ï¸ **Overall:** {year2} was {abs(mean_diff):.2f}Â°F cooler than {year1} on average")
+            st.info(f"**Overall:** {year2} was {abs(mean_diff):.2f}°F cooler than {year1} on average")
 
 with tab6:
     st.header("Additional Regional Heat Maps")
@@ -2804,7 +2803,7 @@ with tab6:
         4. **Save as:** `{era5_file_region}` in the same directory as app.py
         """)
         
-        with st.expander("ðŸ“– View Download Code"):
+        with st.expander("View Download Code"):
             st.code(f"""
 import cdsapi
 
@@ -2904,7 +2903,7 @@ c.retrieve(
             lats_mesh_r, lons_mesh_r, slopes_plot_r,
             station_coords=city_coords,
             title=f'Temperature Change: {season_choice_region} (1974-2024)\\n{region["full_name"]}',
-            cbar_label='Temperature Change (Â°C/decade)',
+            cbar_label='Temperature Change (°C/decade)',
             cmap='RdYlBu_r',
             vmin=-0.3,
             vmax=0.8,
@@ -2923,11 +2922,11 @@ c.retrieve(
         
         with col1:
             mean_change_r = np.nanmean(slopes_r)
-            st.metric("Regional Average Change", f"{mean_change_r:.3f}Â°C/decade")
+            st.metric("Regional Average Change", f"{mean_change_r:.3f}°C/decade")
         
         with col2:
             max_change_r = np.nanmax(slopes_r)
-            st.metric("Maximum Warming", f"{max_change_r:.3f}Â°C/decade")
+            st.metric("Maximum Warming", f"{max_change_r:.3f}°C/decade")
         
     
     # =================================================================
@@ -2977,7 +2976,7 @@ c.retrieve(
             lats_mesh_r, lons_mesh_r, temps_plot_r,
             station_coords=city_coords,
             title=f'Temperature Distribution: {season_choice_region} {selected_year_region}\\n{region["full_name"]}',
-            cbar_label='Temperature (Â°C)',
+            cbar_label='Temperature (°C)',
             cmap='coolwarm',
             diverging=False,
             dpi=150,
@@ -2991,11 +2990,11 @@ c.retrieve(
         # Statistics
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Regional Average", f"{np.nanmean(temps_r):.1f}Â°C")
+            st.metric("Regional Average", f"{np.nanmean(temps_r):.1f}°C")
         with col2:
-            st.metric("Warmest Location", f"{np.nanmax(temps_r):.1f}Â°C")
+            st.metric("Warmest Location", f"{np.nanmax(temps_r):.1f}°C")
         with col3:
-            st.metric("Coolest Location", f"{np.nanmin(temps_r):.1f}Â°C")
+            st.metric("Coolest Location", f"{np.nanmin(temps_r):.1f}°C")
     
     # =================================================================
     # TYPE 3: COMPARE TWO YEARS
@@ -3034,7 +3033,7 @@ c.retrieve(
             months_region = region['seasons'][season_choice_region]
         
         if year1_region == year2_region:
-            st.warning("âš ï¸ Please select two different years to compare.")
+            st.warning("Please select two different years to compare.")
             st.stop()
         
         with st.spinner('Loading data...'):
@@ -3057,7 +3056,7 @@ c.retrieve(
             lats_mesh_r, lons_mesh_r, diff_plot_r,
             station_coords=city_coords,
             title=f'Temperature Difference: {season_choice_region}\\n{year2_region} minus {year1_region} | {region["full_name"]}',
-            cbar_label='Temperature Difference (Â°C)',
+            cbar_label='Temperature Difference (°C)',
             cmap='RdBu_r',
             diverging=True,
             dpi=150,
@@ -3076,24 +3075,24 @@ c.retrieve(
         with col1:
             st.metric(
                 "Average Difference", 
-                f"{mean_diff_r:.2f}Â°C",
+                f"{mean_diff_r:.2f}°C",
                 delta=f"{year2_region} vs {year1_region}"
             )
         
         with col2:
-            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff_r):.1f}Â°C")
+            st.metric("Maximum Warming", f"+{np.nanmax(temp_diff_r):.1f}°C")
         
         with col3:
-            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff_r):.1f}Â°C")
+            st.metric("Maximum Cooling", f"{np.nanmin(temp_diff_r):.1f}°C")
         
         with col4:
             pct_warmer_r = np.sum(temp_diff_r > 0) / np.sum(~np.isnan(temp_diff_r)) * 100
             st.metric("% Area Warmer", f"{pct_warmer_r:.1f}%")
         
         if mean_diff_r > 0:
-            st.success(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}Â°C warmer than {year1_region} on average")
+            st.success(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C warmer than {year1_region} on average")
         else:
-            st.info(f"â„ï¸ **Overall:** {year2_region} was {abs(mean_diff_r):.2f}Â°C cooler than {year1_region} on average")
+            st.info(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C cooler than {year1_region} on average")
 
 # Footer
 st.markdown("---")

@@ -1053,12 +1053,12 @@ with tab1:
         # Summary stats
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Mean", f"{mean_val:.1f}Â°C")
+            st.metric("Mean", f"{mean_val:.1f}°C")
         with col2:
-            st.metric("98th Percentile", f"{p98:.1f}Â°C")
+            st.metric("98th Percentile", f"{p98:.1f}°C")
         with col3:
             temp_range = demo_data['heatindexmax2m'].max() - demo_data['heatindexmax2m'].min()
-            st.metric("Temperature Range", f"{temp_range:.1f}Â°C")
+            st.metric("Temperature Range", f"{temp_range:.1f}°C")
         
         # Create summer distribution
         fig_summer = go.Figure()
@@ -1092,7 +1092,7 @@ with tab1:
             line_dash="dash", 
             line_color="red", 
             line_width=3,
-            annotation_text=f"98th Percentile: {p98:.1f}Â°C",
+            annotation_text=f"98th Percentile: {p98:.1f}°C",
             annotation_position="top"
         )
         
@@ -1102,13 +1102,13 @@ with tab1:
             line_dash="dot", 
             line_color="green", 
             line_width=2,
-            annotation_text=f"Mean: {mean_val:.1f}Â°C",
+            annotation_text=f"Mean: {mean_val:.1f}°C",
             annotation_position="bottom"
         )
         
         fig_summer.update_layout(
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
-            xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (Â°C)",
+            xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
             showlegend=False,
@@ -1118,7 +1118,7 @@ with tab1:
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")
         
         st.info(f"""
-        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}Â°C is an extreme heat day.
+        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C is an extreme heat day.
         """)
     
     # ===== WINTER DISTRIBUTION =====
@@ -1147,12 +1147,12 @@ with tab1:
         # Summary stats
         col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("Mean", f"{mean_val_winter:.1f}Â°C")
+            st.metric("Mean", f"{mean_val_winter:.1f}°C")
         with col2:
-            st.metric("2nd Percentile", f"{p2:.1f}Â°C")
+            st.metric("2nd Percentile", f"{p2:.1f}°C")
         with col3:
             temp_range_winter = winter_data['heatindexmin2m'].max() - winter_data['heatindexmin2m'].min()
-            st.metric("Temperature Range", f"{temp_range_winter:.1f}Â°C")
+            st.metric("Temperature Range", f"{temp_range_winter:.1f}°C")
         
         # Create winter distribution
         fig_winter = go.Figure()
@@ -1186,7 +1186,7 @@ with tab1:
             line_dash="dash", 
             line_color="blue", 
             line_width=3,
-            annotation_text=f"2nd Percentile: {p2:.1f}Â°C",
+            annotation_text=f"2nd Percentile: {p2:.1f}°C",
             annotation_position="top"
         )
         
@@ -1196,13 +1196,13 @@ with tab1:
             line_dash="dot", 
             line_color="green", 
             line_width=2,
-            annotation_text=f"Mean: {mean_val_winter:.1f}Â°C",
+            annotation_text=f"Mean: {mean_val_winter:.1f}°C",
             annotation_position="bottom"
         )
         
         fig_winter.update_layout(
             title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(winter_data)} years of data (1974-2024)</sub>",
-            xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (Â°C)",
+            xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
             showlegend=False,
@@ -1212,7 +1212,7 @@ with tab1:
         st.plotly_chart(fig_winter, use_container_width=True, key="winter_methodology")
         
         st.info(f"""
-        **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}Â°C is an extreme cold day
+        **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}°C is an extreme cold day
         """)
 
 

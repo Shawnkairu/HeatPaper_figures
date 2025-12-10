@@ -1214,21 +1214,7 @@ with tab1:
         st.info(f"""
         **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}Â°C is an extreme cold day
         """)
-    
-    # Flow diagram
-    st.markdown("---")
-    st.subheader("Analysis Flow")
-    st.markdown("""
-```
-    Calculate percentiles for each date across 51 years
-                    â†“
-        â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-        â†“                       â†“                       â†“
-    Extreme Heat Days    Extreme Cold Days     Heatwaves/Coldwaves
-    (Mar-Oct, >98th)     (Nov-Feb, <2nd)      (2+ consecutive
-                                               extreme days)
-```
-    """)
+
 
 # TAB 2: EXTREME HEAT EVENTS
 # TAB 2: EXTREME HEAT & COLD EVENTS (MERGED)
@@ -2085,7 +2071,7 @@ with tab3:
                 early = station_data[station_data['year'] <= 1993]['coldwave_max'].sum()
                 recent = station_data[station_data['year'] >= 2010]['coldwave_max'].sum()
                 change = recent - early
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) â†’ {recent} days (2012-2024)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) --> {recent} days (2012-2024)")
         
         with col2:
             st.markdown("**Nighttime Coldwaves (HI-min) - Trend:**")
@@ -2094,7 +2080,7 @@ with tab3:
                 early = station_data[station_data['year'] <= 1993]['coldwave_min'].sum()
                 recent = station_data[station_data['year'] >= 2010]['coldwave_min'].sum()
                 change = recent - early
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) â†’ {recent} days (2012-2024)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) --> {recent} days (2012-2024)")
         
         st.info("**Key Finding:** Coldwaves are generally decreasing as winters warm, but extreme cold events still pose significant health risks when they occur.")
 

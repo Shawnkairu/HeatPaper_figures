@@ -1767,18 +1767,18 @@ with tab3:
             )
             
             # Data points for HI-min (orange, semi-transparent)
-            fig_heatwaves.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['heatwave_min'],
-                    name="HI-min data", 
-                    mode='markers', 
-                    marker=dict(color='orange', size=4, opacity=0.4),
-                    legendgroup="heatwave_min_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_heatwaves.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['heatwave_min'],
+            #         name="HI-min data", 
+            #         mode='markers', 
+            #         marker=dict(color='orange', size=4, opacity=0.4),
+            #         legendgroup="heatwave_min_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # HI-min Heatwaves (orange) - LOESS smoothed
             fig_heatwaves.add_trace(
@@ -1843,7 +1843,7 @@ with tab3:
         
         st.plotly_chart(fig_heatwaves, use_container_width=True, key="heatwaves_facet")
         
-        # [Same summary statistics as before...]
+      
     
         
         # Summary statistics
@@ -1942,18 +1942,18 @@ with tab3:
             regression_min = slope_min * station_data['year'].values + intercept_min
             
             # Data points for HI-max (dark blue, semi-transparent)
-            fig_coldwaves.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['coldwave_max'],
-                    name="HI-max data", 
-                    mode='markers', 
-                    marker=dict(color='darkblue', size=4, opacity=0.4),
-                    legendgroup="coldwave_max_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_coldwaves.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['coldwave_max'],
+            #         name="HI-max data", 
+            #         mode='markers', 
+            #         marker=dict(color='darkblue', size=4, opacity=0.4),
+            #         legendgroup="coldwave_max_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # HI-max Coldwaves (dark blue) - LOESS smoothed
             fig_coldwaves.add_trace(
@@ -1984,18 +1984,18 @@ with tab3:
             )
             
             # Data points for HI-min (light blue, semi-transparent)
-            fig_coldwaves.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['coldwave_min'],
-                    name="HI-min data", 
-                    mode='markers', 
-                    marker=dict(color='lightblue', size=4, opacity=0.4),
-                    legendgroup="coldwave_min_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_coldwaves.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['coldwave_min'],
+            #         name="HI-min data", 
+            #         mode='markers', 
+            #         marker=dict(color='lightblue', size=4, opacity=0.4),
+            #         legendgroup="coldwave_min_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # HI-min Coldwaves (light blue) - LOESS smoothed
             fig_coldwaves.add_trace(

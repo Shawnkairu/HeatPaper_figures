@@ -1725,18 +1725,18 @@ with tab3:
             regression_min = slope_min * station_data['year'].values + intercept_min
             
             # Data points for HI-max (red, semi-transparent)
-            fig_heatwaves.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['heatwave_max'],
-                    name="HI-max data", 
-                    mode='markers', 
-                    marker=dict(color='red', size=4, opacity=0.4),
-                    legendgroup="heatwave_max_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_heatwaves.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['heatwave_max'],
+            #         name="HI-max data", 
+            #         mode='markers', 
+            #         marker=dict(color='red', size=4, opacity=0.4),
+            #         legendgroup="heatwave_max_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # HI-max Heatwaves (red) - LOESS smoothed
             fig_heatwaves.add_trace(

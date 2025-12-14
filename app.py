@@ -1296,18 +1296,18 @@ with tab2:
             regression_min = slope_min * station_data['year'].values + intercept_min
             
             # Data points for Max HI (darker red, semi-transparent)
-            fig_heat.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['max_extreme'],
-                    name="Max HI data", 
-                    mode='markers', 
-                    marker=dict(color='darkred', size=4, opacity=0.4),
-                    legendgroup="heat_max_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_heat.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['max_extreme'],
+            #         name="Max HI data", 
+            #         mode='markers', 
+            #         marker=dict(color='darkred', size=4, opacity=0.4),
+            #         legendgroup="heat_max_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # Max HI (darker red) - LOESS smoothed
             fig_heat.add_trace(
@@ -1338,18 +1338,18 @@ with tab2:
             )
             
             # Data points for Min HI (orange, semi-transparent)
-            fig_heat.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['min_extreme'],
-                    name="Min HI data", 
-                    mode='markers', 
-                    marker=dict(color='#FFA500', size=4, opacity=0.4),
-                    legendgroup="heat_min_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_heat.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['min_extreme'],
+            #         name="Min HI data", 
+            #         mode='markers', 
+            #         marker=dict(color='#FFA500', size=4, opacity=0.4),
+            #         legendgroup="heat_min_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # Min HI (orange) - LOESS smoothed
             fig_heat.add_trace(
@@ -1500,18 +1500,18 @@ with tab2:
             regression_min = slope_min * station_data['year'].values + intercept_min
             
             # Data points for Max HI (navy, semi-transparent)
-            fig_cold.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['max_extreme'],
-                    name="Max HI data", 
-                    mode='markers', 
-                    marker=dict(color='navy', size=4, opacity=0.4),
-                    legendgroup="cold_max_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_cold.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['max_extreme'],
+            #         name="Max HI data", 
+            #         mode='markers', 
+            #         marker=dict(color='navy', size=4, opacity=0.4),
+            #         legendgroup="cold_max_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # Max HI (navy blue) - LOESS smoothed
             fig_cold.add_trace(
@@ -1542,18 +1542,18 @@ with tab2:
             )
             
             # Data points for Min HI (light blue, semi-transparent)
-            fig_cold.add_trace(
-                go.Scatter(
-                    x=station_data['year'], 
-                    y=station_data['min_extreme'],
-                    name="Min HI data", 
-                    mode='markers', 
-                    marker=dict(color='skyblue', size=4, opacity=0.4),
-                    legendgroup="cold_min_data", 
-                    showlegend=(idx==0)
-                ),
-                row=row, col=col
-            )
+            # fig_cold.add_trace(
+            #     go.Scatter(
+            #         x=station_data['year'], 
+            #         y=station_data['min_extreme'],
+            #         name="Min HI data", 
+            #         mode='markers', 
+            #         marker=dict(color='skyblue', size=4, opacity=0.4),
+            #         legendgroup="cold_min_data", 
+            #         showlegend=(idx==0)
+            #     ),
+            #     row=row, col=col
+            # )
             
             # Min HI (light blue) - LOESS smoothed
             fig_cold.add_trace(

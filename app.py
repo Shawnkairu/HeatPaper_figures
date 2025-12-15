@@ -109,8 +109,14 @@ def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
     df = df.merge(date_thresholds, on='month_day', how='left')
     
     # Flag extreme events
+    # Flag extreme events WITH conservative cutoffs
     if percentile > 0.5:  # For 98th percentile (heat)
-        df[f'extreme_event'] = df[column_name] > df[f'threshold_{percentile}']
+        if 'max' in column_name.lower():
+            MIN_THRESHOLD = 32.2  # 90°F in Celsius (daytime)
+        else:
+            MIN_THRESHOLD = 21.1  # 70°F in Celsius (nighttime)
+        
+        df['extreme_event'] = (df[column_name] > df[f'threshold_{percentile}']) & (df[column_name] >= MIN_THRESHOLD)
     else:  # For 2nd percentile (cold)
         df[f'extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
     

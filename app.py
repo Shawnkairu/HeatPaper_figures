@@ -116,7 +116,7 @@ def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
         else:
             MIN_THRESHOLD = 21.1  # 70°F in Celsius (nighttime)
         
-        df['extreme_event'] = (df[column_name] > df[f'threshold_{percentile}']) & (df[column_name] >= MIN_THRESHOLD)
+        df['extreme_event'] = (df[column_name] > df[f'threshold_{percentile}']) & (df[f'threshold_{percentile}'] >= MIN_THRESHOLD)
     else:  # For 2nd percentile (cold)
         df[f'extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
     

@@ -1862,7 +1862,7 @@ with tab3:
                 station_data = heatwave_df[heatwave_df['station'] == station]
                 early = station_data[station_data['year'] <= 1993]['heatwave_max'].sum()
                 recent = station_data[station_data['year'] >= 2010]['heatwave_max'].sum()
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) â†’ {recent} days (2012-2024)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) -> {recent} days (2012-2024)")
         
         with col2:
             st.markdown("**Nighttime Heatwaves (HI-min) - Recent Increase:**")
@@ -1870,7 +1870,7 @@ with tab3:
                 station_data = heatwave_df[heatwave_df['station'] == station]
                 early = station_data[station_data['year'] <= 1993]['heatwave_min'].sum()
                 recent = station_data[station_data['year'] >= 2010]['heatwave_min'].sum()
-                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) â†’ {recent} days (2012-2024)")
+                st.write(f"**{station_data['station_name'].iloc[0]}**: {early} days (1974-1993) -> {recent} days (2012-2024)")
         
         st.info("**Key Finding:** Nighttime heatwaves (orange lines) are particularly concerning as they prevent physiological recovery from daytime heat, compounding health risks.")
     

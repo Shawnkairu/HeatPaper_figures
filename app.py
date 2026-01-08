@@ -1271,7 +1271,7 @@ with tab2:
                                                               'heatindexmin2m', 0.98)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(1974, 2024):  # Changed to 2024 (exclusive) = 1974-2023
+            for year in range(1974, 2025): 
                 extreme_heat_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1475,7 +1475,7 @@ with tab2:
                                                               'heatindexmin2m', 0.02)
             min_counts = min_extreme.groupby('year')['extreme_event'].sum()
             
-            for year in range(1974, 2024):  # Changed to 2024 (exclusive) = 1974-2023
+            for year in range(1974, 2025):  
                 extreme_cold_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1700,7 +1700,7 @@ with tab3:
             min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
             heatwave_min_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
             
-            for year in range(1974, 2024):  # Changed to 2024 (exclusive) = 1974-2023
+            for year in range(1974, 2025):  
                 heatwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1917,7 +1917,7 @@ with tab3:
             min_cold = identify_waves(min_cold, 'extreme_event', min_consecutive=2)
             coldwave_min_counts = min_cold[min_cold['in_wave']].groupby('year').size()
             
-            for year in range(1974, 2024):  # Changed to 2024 (exclusive) = 1974-2023
+            for year in range(1974, 2025): 
                 coldwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],

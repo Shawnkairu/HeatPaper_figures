@@ -1700,7 +1700,7 @@ with tab3:
             min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
             heatwave_min_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
             
-            for year in range(1974, 2025):  
+            for year in range(1974, 2024):  
                 heatwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1837,7 +1837,7 @@ with tab3:
         ])
         
         fig_heatwaves.update_layout(
-            title_text="Heatwaves by Station (1974-2023)<br><sup>2+ consecutive days exceeding date-specific 98th percentile (March-October)</sup>",
+            title_text="Heatwaves by Station (1974-2024)<br><sup>2+ consecutive days exceeding date-specific 98th percentile (March-October)</sup>",
             height=800,
             showlegend=True,
             template="plotly_white",

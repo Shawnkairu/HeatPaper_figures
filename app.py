@@ -919,13 +919,14 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 
 
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5, tab6= st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7= st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
     "WWA Comparison",
     "Regional Heatmap",
-    "Additional Heat Maps"
+    "Additional Heat Maps",
+    "Data Verification"
 ])
 
 # TAB 1: METHODOLOGY
@@ -3099,6 +3100,508 @@ c.retrieve(
             st.success(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C warmer than {year1_region} on average")
         else:
             st.info(f"**Overall:** {year2_region} was {abs(mean_diff_r):.2f}°C cooler than {year1_region} on average")
+with tab7:
+    st.header("Data Verification & Exploration")
+    st.markdown("""
+    This tab provides transparency into how extreme heat events are counted, 
+    allowing verification of the methodology and exploration of year-by-year data.
+    """)
+    
+    # Create sub-tabs for organization
+    verify_tab1, verify_tab2, verify_tab3 = st.tabs([
+        "Time Series (Raw Counts)",
+        "Year-by-Year Table", 
+        "Day-by-Day Explorer"
+    ])
+    
+    # =========================================================================
+    # SUB-TAB 1: TIME SERIES WITH RAW COUNTS (No LOESS smoothing)
+    # =========================================================================
+    with verify_tab1:
+        st.subheader("Extreme Heat Events: Raw Annual Counts")
+        st.markdown("""
+        **These graphs show actual counts per year (no smoothing)** to clearly show 
+        year-to-year variation, including the observed decrease in 2021-2024.
+        """)
+        
+        metric_choice = st.radio(
+            "Select metric:",
+            ["Extreme Heat Days", "Heatwave Days"],
+            horizontal=True,
+            key="verify_metric"
+        )
+        
+        if metric_choice == "Extreme Heat Days":
+            # Calculate extreme heat days for all stations (raw counts)
+            extreme_data_raw = []
+            
+            for station in selected_stations:
+                df = dfs[station].copy()
+                summer = df[df['month'].isin([3,4,5,6,7,8,9,10])].copy()
+                
+                # Daytime (max)
+                max_extreme = calculate_date_specific_percentiles(
+                    summer.dropna(subset=['heatindexmax2m']), 
+                    'heatindexmax2m', 0.98
+                )
+                max_counts = max_extreme.groupby('year')['extreme_event'].sum()
+                
+                # Nighttime (min)
+                min_extreme = calculate_date_specific_percentiles(
+                    summer.dropna(subset=['heatindexmin2m']), 
+                    'heatindexmin2m', 0.98
+                )
+                min_counts = min_extreme.groupby('year')['extreme_event'].sum()
+                
+                for year in range(1974, 2025):
+                    extreme_data_raw.append({
+                        'station': station,
+                        'station_name': df['station_name'].iloc[0],
+                        'year': year,
+                        'daytime_count': int(max_counts.get(year, 0)),
+                        'nighttime_count': int(min_counts.get(year, 0))
+                    })
+            
+            extreme_df_raw = pd.DataFrame(extreme_data_raw)
+            
+            # Create faceted plot with RAW counts (bars, not smoothed lines)
+            fig_raw = make_subplots(
+                rows=2, cols=3,
+                subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
+                vertical_spacing=0.12,
+                horizontal_spacing=0.08
+            )
+            
+            for idx, station in enumerate(selected_stations):
+                row = idx // 3 + 1
+                col = idx % 3 + 1
+                
+                station_data = extreme_df_raw[extreme_df_raw['station'] == station].sort_values('year')
+                
+                # Daytime bars (red)
+                fig_raw.add_trace(
+                    go.Bar(
+                        x=station_data['year'],
+                        y=station_data['daytime_count'],
+                        name="Daytime (Max HI)",
+                        marker_color='darkred',
+                        opacity=0.7,
+                        legendgroup="daytime",
+                        showlegend=(idx == 0)
+                    ),
+                    row=row, col=col
+                )
+                
+                # Nighttime bars (orange)
+                fig_raw.add_trace(
+                    go.Bar(
+                        x=station_data['year'],
+                        y=station_data['nighttime_count'],
+                        name="Nighttime (Min HI)",
+                        marker_color='orange',
+                        opacity=0.7,
+                        legendgroup="nighttime",
+                        showlegend=(idx == 0)
+                    ),
+                    row=row, col=col
+                )
+                
+                # Add vertical line at 2021 to highlight the dip period
+                fig_raw.add_vline(
+                    x=2021, 
+                    line_dash="dash", 
+                    line_color="gray",
+                    line_width=1,
+                    row=row, col=col
+                )
+            
+            fig_raw.update_layout(
+                title_text="Extreme Heat Days by Station (1974-2024) - Raw Annual Counts<br><sup>Vertical dashed line marks 2021</sup>",
+                height=700,
+                barmode='group',
+                showlegend=True,
+                template="plotly_white",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            
+            fig_raw.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            fig_raw.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            
+            st.plotly_chart(fig_raw, use_container_width=True)
+            
+            # Highlight the 2021+ period
+            st.markdown("---")
+            st.subheader("2021-2024 vs Historical Comparison")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("**Average Daytime Extreme Heat Days per Year:**")
+                for station in selected_stations:
+                    station_data = extreme_df_raw[extreme_df_raw['station'] == station]
+                    hist_avg = station_data[station_data['year'] < 2021]['daytime_count'].mean()
+                    recent_avg = station_data[station_data['year'] >= 2021]['daytime_count'].mean()
+                    diff = recent_avg - hist_avg
+                    pct = (diff / hist_avg * 100) if hist_avg > 0 else 0
+                    st.write(f"**{station}**: {hist_avg:.1f} (1974-2020) → {recent_avg:.1f} (2021-2024) | {pct:+.1f}%")
+            
+            with col2:
+                st.markdown("**Average Nighttime Extreme Heat Days per Year:**")
+                for station in selected_stations:
+                    station_data = extreme_df_raw[extreme_df_raw['station'] == station]
+                    hist_avg = station_data[station_data['year'] < 2021]['nighttime_count'].mean()
+                    recent_avg = station_data[station_data['year'] >= 2021]['nighttime_count'].mean()
+                    diff = recent_avg - hist_avg
+                    pct = (diff / hist_avg * 100) if hist_avg > 0 else 0
+                    st.write(f"**{station}**: {hist_avg:.1f} (1974-2020) → {recent_avg:.1f} (2021-2024) | {pct:+.1f}%")
+        
+        else:  # Heatwave Days
+            # Calculate heatwave days for all stations (raw counts)
+            heatwave_data_raw = []
+            
+            for station in selected_stations:
+                df = dfs[station].copy()
+                summer = df[df['month'].isin([3,4,5,6,7,8,9,10])].copy()
+                
+                # Daytime heatwaves
+                max_extreme = calculate_date_specific_percentiles(
+                    summer.dropna(subset=['heatindexmax2m']), 
+                    'heatindexmax2m', 0.98
+                )
+                max_extreme = identify_waves(max_extreme, 'extreme_event', min_consecutive=2)
+                max_wave_counts = max_extreme[max_extreme['in_wave']].groupby('year').size()
+                
+                # Nighttime heatwaves
+                min_extreme = calculate_date_specific_percentiles(
+                    summer.dropna(subset=['heatindexmin2m']), 
+                    'heatindexmin2m', 0.98
+                )
+                min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
+                min_wave_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
+                
+                for year in range(1974, 2025):
+                    heatwave_data_raw.append({
+                        'station': station,
+                        'station_name': df['station_name'].iloc[0],
+                        'year': year,
+                        'daytime_count': int(max_wave_counts.get(year, 0)),
+                        'nighttime_count': int(min_wave_counts.get(year, 0))
+                    })
+            
+            heatwave_df_raw = pd.DataFrame(heatwave_data_raw)
+            
+            # Create faceted plot with RAW counts
+            fig_wave_raw = make_subplots(
+                rows=2, cols=3,
+                subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
+                vertical_spacing=0.12,
+                horizontal_spacing=0.08
+            )
+            
+            for idx, station in enumerate(selected_stations):
+                row = idx // 3 + 1
+                col = idx % 3 + 1
+                
+                station_data = heatwave_df_raw[heatwave_df_raw['station'] == station].sort_values('year')
+                
+                # Daytime bars
+                fig_wave_raw.add_trace(
+                    go.Bar(
+                        x=station_data['year'],
+                        y=station_data['daytime_count'],
+                        name="Daytime Heatwave Days",
+                        marker_color='darkred',
+                        opacity=0.7,
+                        legendgroup="daytime",
+                        showlegend=(idx == 0)
+                    ),
+                    row=row, col=col
+                )
+                
+                # Nighttime bars
+                fig_wave_raw.add_trace(
+                    go.Bar(
+                        x=station_data['year'],
+                        y=station_data['nighttime_count'],
+                        name="Nighttime Heatwave Days",
+                        marker_color='orange',
+                        opacity=0.7,
+                        legendgroup="nighttime",
+                        showlegend=(idx == 0)
+                    ),
+                    row=row, col=col
+                )
+                
+                # Add vertical line at 2021
+                fig_wave_raw.add_vline(
+                    x=2021, 
+                    line_dash="dash", 
+                    line_color="gray",
+                    line_width=1,
+                    row=row, col=col
+                )
+            
+            fig_wave_raw.update_layout(
+                title_text="Heatwave Days by Station (1974-2024) - Raw Annual Counts<br><sup>Vertical dashed line marks 2021</sup>",
+                height=700,
+                barmode='group',
+                showlegend=True,
+                template="plotly_white",
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="center",
+                    x=0.5
+                )
+            )
+            
+            fig_wave_raw.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            fig_wave_raw.update_yaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+            
+            st.plotly_chart(fig_wave_raw, use_container_width=True)
+    
+    # =========================================================================
+    # SUB-TAB 2: YEAR-BY-YEAR TABLE
+    # =========================================================================
+    with verify_tab2:
+        st.subheader("Year-by-Year Counts Table")
+        
+        table_metric = st.radio(
+            "Select metric for table:",
+            ["Extreme Heat Days (Daytime)", "Extreme Heat Days (Nighttime)", 
+             "Heatwave Days (Daytime)", "Heatwave Days (Nighttime)"],
+            horizontal=True,
+            key="table_metric"
+        )
+        
+        # Build the table data
+        table_data = {'Year': list(range(1974, 2025))}
+        
+        for station in selected_stations:
+            df = dfs[station].copy()
+            summer = df[df['month'].isin([3,4,5,6,7,8,9,10])].copy()
+            station_name = df['station_name'].iloc[0]
+            
+            if "Daytime" in table_metric:
+                col_name = 'heatindexmax2m'
+            else:
+                col_name = 'heatindexmin2m'
+            
+            extreme = calculate_date_specific_percentiles(
+                summer.dropna(subset=[col_name]), 
+                col_name, 0.98
+            )
+            
+            if "Heatwave" in table_metric:
+                extreme = identify_waves(extreme, 'extreme_event', min_consecutive=2)
+                counts = extreme[extreme['in_wave']].groupby('year').size()
+            else:
+                counts = extreme.groupby('year')['extreme_event'].sum()
+            
+            table_data[station_name] = [int(counts.get(year, 0)) for year in range(1974, 2025)]
+        
+        table_df = pd.DataFrame(table_data)
+        
+        # Add a total column
+        station_cols = [col for col in table_df.columns if col != 'Year']
+        table_df['TOTAL'] = table_df[station_cols].sum(axis=1)
+        
+        # Highlight 2021-2024 rows
+        def highlight_recent(row):
+            if row['Year'] >= 2021:
+                return ['background-color: #fff3cd'] * len(row)
+            return [''] * len(row)
+        
+        styled_table = table_df.style.apply(highlight_recent, axis=1)
+        
+        st.markdown("*Yellow highlighted rows = 2021-2024 (recent period)*")
+        st.dataframe(styled_table, use_container_width=True, height=600)
+        
+        # Download button
+        csv = table_df.to_csv(index=False)
+        st.download_button(
+            label="📥 Download as CSV",
+            data=csv,
+            file_name=f"extreme_heat_counts_{table_metric.replace(' ', '_').lower()}.csv",
+            mime="text/csv"
+        )
+        
+        # Summary stats
+        st.markdown("---")
+        st.subheader("Summary Statistics")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            hist_total = table_df[table_df['Year'] < 2021]['TOTAL'].sum()
+            hist_years = len(table_df[table_df['Year'] < 2021])
+            st.metric("1974-2020 Total", f"{int(hist_total)}", help=f"Over {hist_years} years")
+            st.metric("1974-2020 Avg/Year", f"{hist_total/hist_years:.1f}")
+        
+        with col2:
+            recent_total = table_df[table_df['Year'] >= 2021]['TOTAL'].sum()
+            recent_years = len(table_df[table_df['Year'] >= 2021])
+            st.metric("2021-2024 Total", f"{int(recent_total)}", help=f"Over {recent_years} years")
+            st.metric("2021-2024 Avg/Year", f"{recent_total/recent_years:.1f}")
+        
+        with col3:
+            hist_avg = hist_total / hist_years
+            recent_avg = recent_total / recent_years
+            diff = recent_avg - hist_avg
+            pct = (diff / hist_avg * 100) if hist_avg > 0 else 0
+            st.metric("Change in Avg/Year", f"{diff:+.1f}", delta=f"{pct:+.1f}%")
+    
+    # =========================================================================
+    # SUB-TAB 3: DAY-BY-DAY EXPLORER
+    # =========================================================================
+    with verify_tab3:
+        st.subheader("Day-by-Day Data Explorer")
+        st.markdown("""
+        **Select a station and year to see exactly which days were classified as extreme heat days.**
+        This allows verification that the methodology is working correctly.
+        """)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            explorer_station = st.selectbox(
+                "Select Station:",
+                selected_stations,
+                format_func=lambda x: dfs[x]['station_name'].iloc[0],
+                key="explorer_station"
+            )
+        
+        with col2:
+            explorer_year = st.selectbox(
+                "Select Year:",
+                list(range(2024, 1973, -1)),  # Reverse order, recent first
+                key="explorer_year"
+            )
+        
+        with col3:
+            explorer_type = st.radio(
+                "Time of Day:",
+                ["Daytime (Max HI)", "Nighttime (Min HI)"],
+                key="explorer_type"
+            )
+        
+        # Get the data for selected station/year
+        df_explorer = dfs[explorer_station].copy()
+        df_explorer = df_explorer[df_explorer['month'].isin([3,4,5,6,7,8,9,10])].copy()
+        df_explorer = df_explorer[df_explorer['year'] == explorer_year].copy()
+        
+        if "Daytime" in explorer_type:
+            col_name = 'heatindexmax2m'
+            cutoff = 32.2
+            cutoff_label = "32.2°C (90°F)"
+        else:
+            col_name = 'heatindexmin2m'
+            cutoff = 21.1
+            cutoff_label = "21.1°C (70°F)"
+        
+        # Calculate with full methodology
+        df_full = dfs[explorer_station].copy()
+        df_full_summer = df_full[df_full['month'].isin([3,4,5,6,7,8,9,10])].copy()
+        df_with_thresholds = calculate_date_specific_percentiles(
+            df_full_summer.dropna(subset=[col_name]),
+            col_name, 0.98
+        )
+        
+        # Filter to selected year
+        df_year = df_with_thresholds[df_with_thresholds['year'] == explorer_year].copy()
+        
+        # Create display dataframe
+        display_df = df_year[['datetime', 'month_day', col_name, f'threshold_0.98', 'extreme_event']].copy()
+        display_df.columns = ['Date', 'Month-Day', 'Heat Index (°C)', '98th Percentile Threshold (°C)', 'Extreme Event']
+        display_df['Above Threshold?'] = display_df['Heat Index (°C)'] > display_df['98th Percentile Threshold (°C)']
+        display_df[f'Above Cutoff ({cutoff_label})?'] = display_df['Heat Index (°C)'] >= cutoff
+        display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%Y-%m-%d')
+        
+        # Round numeric columns
+        display_df['Heat Index (°C)'] = display_df['Heat Index (°C)'].round(1)
+        display_df['98th Percentile Threshold (°C)'] = display_df['98th Percentile Threshold (°C)'].round(1)
+        
+        # Show summary metrics
+        total_days = len(display_df)
+        extreme_days = display_df['Extreme Event'].sum()
+        above_threshold = display_df['Above Threshold?'].sum()
+        above_cutoff = display_df[f'Above Cutoff ({cutoff_label})?'].sum()
+        
+        st.markdown("---")
+        st.markdown(f"### {dfs[explorer_station]['station_name'].iloc[0]} - {explorer_year} ({explorer_type})")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Days (Mar-Oct)", total_days)
+        col2.metric("Days Above 98th %ile", int(above_threshold))
+        col3.metric(f"Days Above {cutoff_label}", int(above_cutoff))
+        col4.metric("Extreme Heat Days", int(extreme_days), 
+                   help="Must be BOTH above 98th percentile AND above cutoff")
+        
+        # Filter options
+        st.markdown("---")
+        show_only_extreme = st.checkbox("Show only extreme heat days", value=True, key="show_extreme_only")
+        
+        if show_only_extreme:
+            display_filtered = display_df[display_df['Extreme Event'] == True]
+        else:
+            display_filtered = display_df
+        
+        if len(display_filtered) == 0:
+            st.info(f"No extreme heat days found for {explorer_year} at this station.")
+        else:
+            # Color code the dataframe
+            def highlight_extreme(row):
+                if row['Extreme Event']:
+                    return ['background-color: #ffcccc'] * len(row)
+                return [''] * len(row)
+            
+            styled = display_filtered.style.apply(highlight_extreme, axis=1)
+            st.dataframe(styled, use_container_width=True, height=400)
+        
+        # Explanation box
+        st.markdown("---")
+        st.info(f"""
+        **How Extreme Heat Days are Classified:**
+        
+        A day is classified as an **Extreme Heat Day** if BOTH conditions are met:
+        1. ✅ Heat Index > 98th percentile threshold for that specific date
+        2. ✅ Heat Index ≥ {cutoff_label} (conservative cutoff)
+        
+        **Why the conservative cutoff?**
+        Without it, a mild 25°C day could be "extreme" just because it's unusual for that date.
+        The cutoff ensures we only flag days that are actually dangerous for health.
+        """)
+        
+        # Show a specific example if there are extreme days
+        if extreme_days > 0:
+            st.markdown("---")
+            st.subheader("Example Breakdown")
+            example_day = display_df[display_df['Extreme Event'] == True].iloc[0]
+            
+            st.markdown(f"""
+            **{example_day['Date']}:**
+            - Heat Index: **{example_day['Heat Index (°C)']}°C**
+            - 98th Percentile Threshold for {example_day['Month-Day']}: **{example_day['98th Percentile Threshold (°C)']}°C**
+            - Conservative Cutoff: **{cutoff}°C**
+            
+            ✅ {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
+            ✅ {example_day['Heat Index (°C)']}°C ≥ {cutoff}°C (above cutoff)  
+            
+            **→ Classified as Extreme Heat Day**
+            """)
+
+
+
+
+
+
 
 # Footer
 st.markdown("---")

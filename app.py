@@ -948,8 +948,11 @@ with tab1:
     **For each calendar date (e.g., June 15):**
     1. Collect all June 15th values from 1974-2024 (51 years)
     2. Calculate the 98th percentile (heat) and 2nd percentile (cold) of those 51 values
-    3. Any June 15th exceeding its specific threshold is an "extreme heat/cold day"
-    4. Two or more consecutive extreme days = "heatwave/coldwave"
+    3. Apply conservative cutoffs to avoid classifying mild conditions as extreme:
+       - **Daytime:** Must also be ≥ 32.2°C (90°F)
+       - **Nighttime:** Must also be ≥ 21.1°C (70°F)
+    4. Any day exceeding BOTH its percentile threshold AND the cutoff = "extreme heat day"
+    5. Two or more consecutive extreme days = "heatwave/coldwave"
     """)
     
     # Enhanced Key Metrics for Methodology
@@ -1112,6 +1115,15 @@ with tab1:
             annotation_text=f"Mean: {mean_val:.1f}°C",
             annotation_position="bottom"
         )
+        # Add conservative cutoff line (32.2°C = 90°F)
+        fig_summer.add_vline(
+            x=32.2, 
+            line_dash="dot", 
+            line_color="purple", 
+            line_width=2,
+            annotation_text="Cutoff: 32.2°C (90°F)",
+            annotation_position="top left"
+        )
         
         fig_summer.update_layout(
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
@@ -1125,7 +1137,7 @@ with tab1:
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")
         
         st.info(f"""
-        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C is an extreme heat day.
+        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C **AND** ≥ 32.2°C (90°F) is an extreme heat day.
         """)
     
     # ===== WINTER DISTRIBUTION =====
@@ -2100,20 +2112,20 @@ with tab4:
     
     **Calculation Method:**
     1. For each station, we calculate the 98th percentile threshold for every calendar date using the full historical record (1974-2024)
-    2. For the comparison period (2005-2022), we count how many days exceed their date-specific 98th percentile threshold
+    2. For the comparison period (2005-2022), we count how many days exceed their date-specific 98th percentile threshold **AND** meet the conservative cutoff (≥32.2°C / 90°F)
     3. WWAs are counted as issued by the NWS for each year
     4. We then compare our extreme heat day counts to the official WWA counts
 
     
     **Notes:**
-    - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
+    - **Our methodology uses:** Date-specific 98th percentile thresholds + conservative cutoff of 32.2°C (90°F) for daytime heat index
     - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
-    - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate. Also, WWAs in Wilmington are higher than heat events, but not sure why.
+    - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate.
     
     ---
     
     **Visualization:**
-    - **Extreme Heat Days** (Red): Days exceeding the 98th percentile threshold using our methodology
+    - **Extreme Heat Days** (Red): Days exceeding BOTH the 98th percentile threshold AND the 32.2°C cutoff
     - **WWAs Issued** (Black): Official National Weather Service heat warnings
     
     """)
@@ -2193,8 +2205,9 @@ with tab4:
         # Merge thresholds
         filtered = filtered.merge(date_thresholds, on='month_day', how='left')
         
-        # Flag extreme events
-        filtered['extreme_event'] = filtered['heatindexmax2m'] > filtered['threshold_0.98']
+        # Flag extreme events WITH conservative cutoff (32.2°C = 90°F for daytime)
+        MIN_THRESHOLD = 32.2  # 90°F in Celsius
+        filtered['extreme_event'] = (filtered['heatindexmax2m'] > filtered['threshold_0.98']) & (filtered['heatindexmax2m'] >= MIN_THRESHOLD)
         
         # Count extreme heat days per year
         yearly_extreme = filtered[filtered['extreme_event']].groupby('year').size().reset_index()

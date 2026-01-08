@@ -2434,7 +2434,6 @@ with tab4:
             **Interpretation:**
             - WWAs were issued **{int(total_all_wwa - total_all_extreme)} more times** than our methodology identified extreme heat days
             - This may indicate WWAs are issued for shorter durations or lower thresholds
-            - Note: WWAs can be issued for heat events lasting just a few hours, while our methodology requires a full day above the 98th percentile
             """)
         else:
             st.markdown("**Interpretation:** The methodologies identified a similar number of events overall.")

@@ -3583,9 +3583,9 @@ with tab7:
         st.info(f"""
         **How Extreme Heat Days are Classified:**
         
-        A day is classified as an **Extreme Heat Day** if BOTH conditions are met:
-        1. ✅ Heat Index > 98th percentile threshold for that specific date
-        2. ✅ Heat Index ≥ {cutoff_label} (conservative cutoff)
+        A day is classified as an Extreme Heat Day if BOTH conditions are met:
+        1. Heat Index > 98th percentile threshold for that specific date
+        2. Heat Index ≥ {cutoff_label} (conservative cutoff)
         
         **Why the conservative cutoff?**
         Without it, a mild 25°C day could be "extreme" just because it's unusual for that date.
@@ -3604,8 +3604,8 @@ with tab7:
             - 98th Percentile Threshold for {example_day['Month-Day']}: **{example_day['98th Percentile Threshold (°C)']}°C**
             - Conservative Cutoff: **{cutoff}°C**
             
-            ✅ {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
-            ✅ {example_day['Heat Index (°C)']}°C ≥ {cutoff}°C (above cutoff)  
+            {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
+            {example_day['Heat Index (°C)']}°C ≥ {cutoff}°C (above cutoff)  
             
             **→ Classified as Extreme Heat Day**
             """)

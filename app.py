@@ -108,17 +108,12 @@ def calculate_date_specific_percentiles(df, column_name, percentile=0.98):
     # Merge thresholds back to original data
     df = df.merge(date_thresholds, on='month_day', how='left')
     
-    # Flag extreme events
-    # Flag extreme events WITH conservative cutoffs
+
+    # Flag extreme events WITHOUT conservative cutoffs
     if percentile > 0.5:  # For 98th percentile (heat)
-        if 'max' in column_name.lower():
-            MIN_THRESHOLD = 32.2  # 90°F in Celsius (daytime)
-        else:
-            MIN_THRESHOLD = 21.1  # 70°F in Celsius (nighttime)
-        
-        df['extreme_event'] = (df[column_name] > df[f'threshold_{percentile}']) & (df[column_name] >= MIN_THRESHOLD)
+        df['extreme_event'] = df[column_name] > df[f'threshold_{percentile}']
     else:  # For 2nd percentile (cold)
-        df[f'extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
+        df['extreme_event'] = df[column_name] < df[f'threshold_{percentile}']
     
     return df
 
@@ -948,10 +943,8 @@ with tab1:
     **For each calendar date (e.g., June 15):**
     1. Collect all June 15th values from 1974-2024 (51 years)
     2. Calculate the 98th percentile (heat) and 2nd percentile (cold) of those 51 values
-    3. Apply conservative cutoffs to avoid classifying mild conditions as extreme:
-       - **Daytime:** Must also be ≥ 32.2°C (90°F)
-       - **Nighttime:** Must also be ≥ 21.1°C (70°F)
-    4. Any day exceeding BOTH its percentile threshold AND the cutoff = "extreme heat day"
+    3. Any day exceeding its specific threshold is an "extreme heat/cold day"
+    4. Two or more consecutive extreme days = "heatwave/coldwave"
     5. Two or more consecutive extreme days = "heatwave/coldwave"
     """)
     
@@ -1115,15 +1108,15 @@ with tab1:
             annotation_text=f"Mean: {mean_val:.1f}°C",
             annotation_position="bottom"
         )
-        # Add conservative cutoff line (32.2°C = 90°F)
-        fig_summer.add_vline(
-            x=32.2, 
-            line_dash="dot", 
-            line_color="purple", 
-            line_width=2,
-            annotation_text="Cutoff: 32.2°C (90°F)",
-            annotation_position="top left"
-        )
+        # # Add conservative cutoff line (32.2°C = 90°F)
+        # fig_summer.add_vline(
+        #     x=32.2, 
+        #     line_dash="dot", 
+        #     line_color="purple", 
+        #     line_width=2,
+        #     annotation_text="Cutoff: 32.2°C (90°F)",
+        #     annotation_position="top left"
+        # )
         
         fig_summer.update_layout(
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
@@ -1137,7 +1130,7 @@ with tab1:
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")
         
         st.info(f"""
-        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C **AND** ≥ 32.2°C (90°F) is an extreme heat day.
+        **Heat Threshold:** Any {selected_summer_date.strftime('%B %d')} with heat index > {p98:.1f}°C is an extreme heat day.
         """)
     
     # ===== WINTER DISTRIBUTION =====
@@ -2112,20 +2105,20 @@ with tab4:
     
     **Calculation Method:**
     1. For each station, we calculate the 98th percentile threshold for every calendar date using the full historical record (1974-2024)
-    2. For the comparison period (2005-2021), we count how many days exceed their date-specific 98th percentile threshold **AND** meet the conservative cutoff (≥32.2°C / 90°F)
+    2. For the comparison period (2005-2021), we count how many days exceed their date-specific 98th percentile threshold
     3. WWAs are counted as issued by the NWS for each year
     4. We then compare our extreme heat day counts to the official WWA counts
 
     
     **Notes:**
-    - **Our methodology uses:** Date-specific 98th percentile thresholds + conservative cutoff of 32.2°C (90°F) for daytime heat index
+    - **Our methodology uses:** Date-specific 98th percentile thresholds calculated across 51 years (1974-2024)
     - **NWS WWAs use:** Fixed heat index thresholds (typically 105-110°F depending on region) without date-specific adjustment
     - **Gaps in the data:** No WWAs were ever issued for Asheville during the analyzed period, likely due to cooler mountain climate.
     
     ---
     
     **Visualization:**
-    - **Extreme Heat Days** (Red): Days exceeding BOTH the 98th percentile threshold AND the 32.2°C cutoff
+    - **Extreme Heat Days** (Red): Days exceeding the 98th percentile threshold using our methodology
     - **WWAs Issued** (Black): Official National Weather Service heat warnings
     
     """)
@@ -2205,9 +2198,8 @@ with tab4:
         # Merge thresholds
         filtered = filtered.merge(date_thresholds, on='month_day', how='left')
         
-        # Flag extreme events WITH conservative cutoff (32.2°C = 90°F for daytime)
-        MIN_THRESHOLD = 32.2  # 90°F in Celsius
-        filtered['extreme_event'] = (filtered['heatindexmax2m'] > filtered['threshold_0.98']) & (filtered['heatindexmax2m'] >= MIN_THRESHOLD)
+        # Flag extreme events
+        filtered['extreme_event'] = filtered['heatindexmax2m'] > filtered['threshold_0.98']
         
         # Count extreme heat days per year
         yearly_extreme = filtered[filtered['extreme_event']].groupby('year').size().reset_index()
@@ -3511,12 +3503,8 @@ with tab7:
         
         if "Daytime" in explorer_type:
             col_name = 'heatindexmax2m'
-            cutoff = 32.2
-            cutoff_label = "32.2°C (90°F)"
         else:
             col_name = 'heatindexmin2m'
-            cutoff = 21.1
-            cutoff_label = "21.1°C (70°F)"
         
         # Calculate with full methodology
         df_full = dfs[explorer_station].copy()
@@ -3533,7 +3521,7 @@ with tab7:
         display_df = df_year[['datetime', 'month_day', col_name, f'threshold_0.98', 'extreme_event']].copy()
         display_df.columns = ['Date', 'Month-Day', 'Heat Index (°C)', '98th Percentile Threshold (°C)', 'Extreme Event']
         display_df['Above Threshold?'] = display_df['Heat Index (°C)'] > display_df['98th Percentile Threshold (°C)']
-        display_df[f'Above Cutoff ({cutoff_label})?'] = display_df['Heat Index (°C)'] >= cutoff
+    
         display_df['Date'] = pd.to_datetime(display_df['Date']).dt.strftime('%Y-%m-%d')
         
         # Round numeric columns
@@ -3544,17 +3532,14 @@ with tab7:
         total_days = len(display_df)
         extreme_days = display_df['Extreme Event'].sum()
         above_threshold = display_df['Above Threshold?'].sum()
-        above_cutoff = display_df[f'Above Cutoff ({cutoff_label})?'].sum()
         
         st.markdown("---")
         st.markdown(f"### {dfs[explorer_station]['station_name'].iloc[0]} - {explorer_year} ({explorer_type})")
         
-        col1, col2, col3, col4 = st.columns(4)
+        col1, col2, col3 = st.columns(3)
         col1.metric("Total Days (Mar-Oct)", total_days)
         col2.metric("Days Above 98th %ile", int(above_threshold))
-        col3.metric(f"Days Above {cutoff_label}", int(above_cutoff))
-        col4.metric("Extreme Heat Days", int(extreme_days), 
-                   help="Must be BOTH above 98th percentile AND above cutoff")
+        col3.metric("Extreme Heat Days", int(extreme_days))
         
         # Filter options
         st.markdown("---")
@@ -3579,16 +3564,14 @@ with tab7:
         
         # Explanation box
         st.markdown("---")
-        st.info(f"""
+        st.info("""
         **How Extreme Heat Days are Classified:**
         
-        A day is classified as an Extreme Heat Day if BOTH conditions are met:
-        1. Heat Index > 98th percentile threshold for that specific date
-        2. Heat Index ≥ {cutoff_label} (conservative cutoff)
+        A day is classified as an **Extreme Heat Day** if:
+        - ✅ Heat Index > 98th percentile threshold for that specific date
         
-        **Why the conservative cutoff?**
-        Without it, a mild 25°C day could be "extreme" just because it's unusual for that date.
-        The cutoff ensures we only flag days that are actually dangerous for health.
+        The date-specific percentile approach ensures that "extreme" is defined relative 
+        to what's normal for that particular time of year at that location.
         """)
         
         # Show a specific example if there are extreme days
@@ -3601,10 +3584,8 @@ with tab7:
             **{example_day['Date']}:**
             - Heat Index: **{example_day['Heat Index (°C)']}°C**
             - 98th Percentile Threshold for {example_day['Month-Day']}: **{example_day['98th Percentile Threshold (°C)']}°C**
-            - Conservative Cutoff: **{cutoff}°C**
             
-            {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
-            {example_day['Heat Index (°C)']}°C ≥ {cutoff}°C (above cutoff)  
+            ✅ {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
             
             **→ Classified as Extreme Heat Day**
             """)

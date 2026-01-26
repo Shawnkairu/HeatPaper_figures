@@ -3718,11 +3718,11 @@ with tab8:
     # Options
     col1, col2 = st.columns([1, 3])
     
-    with col1:
-        show_significant = st.checkbox(
-            "Show only significant trends (p<0.05)",
-            value=False
-        )
+    # with col1:
+    #     show_significant = st.checkbox(
+    #         "Show only significant trends (p<0.05)",
+    #         value=False
+    #     )
     
     # Calculate button
     # if st.button("Generate Heat Day Trend Map", type="primary"):
@@ -3805,30 +3805,30 @@ with tab8:
         'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
     }
     
-    region_stats = []
+    # region_stats = []
     
-    for region_name, bounds in regions.items():
-        lat_mask = (lats >= bounds['lat'][0]) & (lats <= bounds['lat'][1])
-        lon_mask = (lons >= bounds['lon'][0]) & (lons <= bounds['lon'][1])
+    # for region_name, bounds in regions.items():
+    #     lat_mask = (lats >= bounds['lat'][0]) & (lats <= bounds['lat'][1])
+    #     lon_mask = (lons >= bounds['lon'][0]) & (lons <= bounds['lon'][1])
         
-        region_slopes = []
-        for i, lat in enumerate(lats):
-            if lat_mask[i]:
-                for j, lon in enumerate(lons):
-                    if lon_mask[j] and not np.isnan(slopes[i, j]):
-                        region_slopes.append(slopes[i, j])
+    #     region_slopes = []
+    #     for i, lat in enumerate(lats):
+    #         if lat_mask[i]:
+    #             for j, lon in enumerate(lons):
+    #                 if lon_mask[j] and not np.isnan(slopes[i, j]):
+    #                     region_slopes.append(slopes[i, j])
         
-        if len(region_slopes) > 0:
-            region_stats.append({
-                'Region': region_name,
-                'Mean Trend (days/dec)': f"{np.mean(region_slopes):.2f}",
-                'Median': f"{np.median(region_slopes):.2f}",
-                'Grid Cells': len(region_slopes)
-            })
+    #     if len(region_slopes) > 0:
+    #         region_stats.append({
+    #             'Region': region_name,
+    #             'Mean Trend (days/dec)': f"{np.mean(region_slopes):.2f}",
+    #             'Median': f"{np.median(region_slopes):.2f}",
+    #             'Grid Cells': len(region_slopes)
+    #         })
     
-    if region_stats:
-        df_regions = pd.DataFrame(region_stats)
-        st.dataframe(df_regions, use_container_width=True, hide_index=True)
+    # if region_stats:
+    #     df_regions = pd.DataFrame(region_stats)
+    #     st.dataframe(df_regions, use_container_width=True, hide_index=True)
 
 
 # Footer

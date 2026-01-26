@@ -3694,7 +3694,7 @@ with tab8:
         st.stop()
     
     st.markdown("""
-    This map shows **spatial trends in extreme heat days** across North Carolina and surrounding regions.
+    This map shows spatial trends in extreme heat days across North Carolina and surrounding regions.
     
     **Methodology:**
     - Date-specific 98th percentile thresholds (March-October)

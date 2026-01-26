@@ -3795,15 +3795,15 @@ with tab8:
     #     pct_sig = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
     #     st.metric("% Significant (p<0.05)", f"{pct_sig:.1f}%")
     
-    # Regional breakdown
-    st.markdown("---")
-    st.markdown("### Regional Trends")
+    # # Regional breakdown
+    # st.markdown("---")
+    # st.markdown("### Regional Trends")
     
-    regions = {
-        'Mountains (West)': {'lat': (35, 36.5), 'lon': (-84.5, -81)},
-        'Piedmont (Central)': {'lat': (35, 36.5), 'lon': (-81, -78.5)},
-        'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
-    }
+    # regions = {
+    #     'Mountains (West)': {'lat': (35, 36.5), 'lon': (-84.5, -81)},
+    #     'Piedmont (Central)': {'lat': (35, 36.5), 'lon': (-81, -78.5)},
+    #     'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
+    # }
     
     # region_stats = []
     

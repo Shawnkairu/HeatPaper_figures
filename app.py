@@ -3718,11 +3718,11 @@ with tab8:
     # Options
     col1, col2 = st.columns([1, 3])
     
-    # with col1:
-    #     show_significant = st.checkbox(
-    #         "Show only significant trends (p<0.05)",
-    #         value=False
-    #     )
+    with col1:
+        show_significant = st.checkbox(
+            "Show only significant trends (p<0.05)",
+            value=False
+        )
     
     # Calculate button
     # if st.button("Generate Heat Day Trend Map", type="primary"):
@@ -3731,13 +3731,13 @@ with tab8:
         lats, lons, slopes, r_squared, p_values = calculate_heatday_trends_for_map(era5_file)
     
     # # Apply significance filter if requested
-    # if show_significant:
-    #     slopes_plot = slopes.copy()
-    #     slopes_plot[p_values >= 0.05] = np.nan
-    #     title_suffix = ' (p<0.05 only)'
-    # else:
-    #     slopes_plot = slopes
-    #     title_suffix = ''
+    if show_significant:
+        slopes_plot = slopes.copy()
+        slopes_plot[p_values >= 0.05] = np.nan
+        title_suffix = ' (p<0.05 only)'
+    else:
+        slopes_plot = slopes
+        title_suffix = ''
     
     # Interpolate for smoother visualization
     with st.spinner('Creating map...'):

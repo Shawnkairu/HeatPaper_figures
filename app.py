@@ -12,6 +12,10 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
+from heatday_slope_calculator_optimized import (
+    calculate_heatday_trends_optimized, 
+    plot_heatday_slopes
+)
 
 # Load data function
 @st.cache_data
@@ -914,14 +918,15 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 
 
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5, tab6, tab7= st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
     "WWA Comparison",
     "Regional Heatmap",
     "Additional Heat Maps",
-    "Data Verification"
+    "Data Verification",
+    "Heat Day Slope Map"
 ])
 
 # TAB 1: METHODOLOGY
@@ -3589,7 +3594,24 @@ with tab7:
             
             **→ Classified as Extreme Heat Day**
             """)
-
+with tab8:
+    st.subheader("Spatial Heat Day Trends")
+    
+    # File input
+    era5_file = st.text_input(
+        "Path to ERA5 file:",
+        value="era5_temperature_nc_1974_2024.nc"
+    )
+    
+    if st.button("Calculate Trends"):
+        lats, lons, slopes, r2, pvals, _ = calculate_heatday_trends_optimized(era5_file)
+        
+        # Display map
+        fig = plot_heatday_slopes(lats, lons, slopes)
+        st.pyplot(fig)
+        
+        # Show stats
+        st.metric("Mean Trend", f"{np.nanmean(slopes):.2f} days/decade")
 
 
 

@@ -3725,110 +3725,110 @@ with tab8:
         )
     
     # Calculate button
-    if st.button("Generate Heat Day Trend Map", type="primary"):
+    # if st.button("Generate Heat Day Trend Map", type="primary"):
         
-        with st.spinner('Calculating heat day trends...'):
-            lats, lons, slopes, r_squared, p_values = calculate_heatday_trends_for_map(era5_file)
+    with st.spinner('Calculating heat day trends...'):
+        lats, lons, slopes, r_squared, p_values = calculate_heatday_trends_for_map(era5_file)
+    
+    # Apply significance filter if requested
+    if show_significant:
+        slopes_plot = slopes.copy()
+        slopes_plot[p_values >= 0.05] = np.nan
+        title_suffix = ' (p<0.05 only)'
+    else:
+        slopes_plot = slopes
+        title_suffix = ''
+    
+    # Interpolate for smoother visualization
+    with st.spinner('Creating map...'):
+        lats_plot, lons_plot, slopes_smooth = interpolate_grid(lats, lons, slopes_plot, factor=8)
+    
+    # Create meshgrid
+    lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
+    
+    # Create diverging colormap centered at zero
+    cmap = LinearSegmentedColormap.from_list(
+        'heat_trend',
+        ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', 
+         '#f7f7f7',
+         '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
+    )
+    
+    # Symmetric scale
+    max_abs = np.nanmax(np.abs(slopes_smooth))
+    
+    # Create map
+    fig = create_matplotlib_heatmap_inline(
+        lats_mesh, lons_mesh, slopes_smooth,
+        station_coords=station_coords,
+        title=f'Heat Day Trends (1974-2024){title_suffix}\nDate-Specific 98th Percentile Method',
+        cbar_label='Heat Day Trend (days/decade)',
+        cmap=cmap,
+        vmin=-max_abs,
+        vmax=max_abs,
+        diverging=True,
+        dpi=150
+    )
+    
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+    
+    # Summary statistics
+    st.markdown("---")
+    st.markdown("### Summary Statistics")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        mean_slope = np.nanmean(slopes)
+        st.metric("Mean Trend", f"{mean_slope:.2f} days/decade")
+    
+    # with col2:
+    #     median_slope = np.nanmedian(slopes)
+    #     st.metric("Median Trend", f"{median_slope:.2f} days/decade")
+    
+    # with col3:
+    #     pct_increasing = np.sum(slopes > 0) / np.sum(~np.isnan(slopes)) * 100
+    #     st.metric("% Increasing", f"{pct_increasing:.1f}%")
+    
+    # with col4:
+    #     pct_sig = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
+    #     st.metric("% Significant (p<0.05)", f"{pct_sig:.1f}%")
+    
+    # Regional breakdown
+    st.markdown("---")
+    st.markdown("### Regional Trends")
+    
+    regions = {
+        'Mountains (West)': {'lat': (35, 36.5), 'lon': (-84.5, -81)},
+        'Piedmont (Central)': {'lat': (35, 36.5), 'lon': (-81, -78.5)},
+        'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
+    }
+    
+    region_stats = []
+    
+    for region_name, bounds in regions.items():
+        lat_mask = (lats >= bounds['lat'][0]) & (lats <= bounds['lat'][1])
+        lon_mask = (lons >= bounds['lon'][0]) & (lons <= bounds['lon'][1])
         
-        # Apply significance filter if requested
-        if show_significant:
-            slopes_plot = slopes.copy()
-            slopes_plot[p_values >= 0.05] = np.nan
-            title_suffix = ' (p<0.05 only)'
-        else:
-            slopes_plot = slopes
-            title_suffix = ''
+        region_slopes = []
+        for i, lat in enumerate(lats):
+            if lat_mask[i]:
+                for j, lon in enumerate(lons):
+                    if lon_mask[j] and not np.isnan(slopes[i, j]):
+                        region_slopes.append(slopes[i, j])
         
-        # Interpolate for smoother visualization
-        with st.spinner('Creating map...'):
-            lats_plot, lons_plot, slopes_smooth = interpolate_grid(lats, lons, slopes_plot, factor=8)
-        
-        # Create meshgrid
-        lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
-        
-        # Create diverging colormap centered at zero
-        cmap = LinearSegmentedColormap.from_list(
-            'heat_trend',
-            ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', 
-             '#f7f7f7',
-             '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
-        )
-        
-        # Symmetric scale
-        max_abs = np.nanmax(np.abs(slopes_smooth))
-        
-        # Create map
-        fig = create_matplotlib_heatmap_inline(
-            lats_mesh, lons_mesh, slopes_smooth,
-            station_coords=station_coords,
-            title=f'Heat Day Trends (1974-2024){title_suffix}\nDate-Specific 98th Percentile Method',
-            cbar_label='Heat Day Trend (days/decade)',
-            cmap=cmap,
-            vmin=-max_abs,
-            vmax=max_abs,
-            diverging=True,
-            dpi=150
-        )
-        
-        st.pyplot(fig, use_container_width=True)
-        plt.close(fig)
-        
-        # Summary statistics
-        st.markdown("---")
-        st.markdown("### Summary Statistics")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            mean_slope = np.nanmean(slopes)
-            st.metric("Mean Trend", f"{mean_slope:.2f} days/decade")
-        
-        with col2:
-            median_slope = np.nanmedian(slopes)
-            st.metric("Median Trend", f"{median_slope:.2f} days/decade")
-        
-        with col3:
-            pct_increasing = np.sum(slopes > 0) / np.sum(~np.isnan(slopes)) * 100
-            st.metric("% Increasing", f"{pct_increasing:.1f}%")
-        
-        with col4:
-            pct_sig = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
-            st.metric("% Significant (p<0.05)", f"{pct_sig:.1f}%")
-        
-        # Regional breakdown
-        st.markdown("---")
-        st.markdown("### Regional Trends")
-        
-        regions = {
-            'Mountains (West)': {'lat': (35, 36.5), 'lon': (-84.5, -81)},
-            'Piedmont (Central)': {'lat': (35, 36.5), 'lon': (-81, -78.5)},
-            'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
-        }
-        
-        region_stats = []
-        
-        for region_name, bounds in regions.items():
-            lat_mask = (lats >= bounds['lat'][0]) & (lats <= bounds['lat'][1])
-            lon_mask = (lons >= bounds['lon'][0]) & (lons <= bounds['lon'][1])
-            
-            region_slopes = []
-            for i, lat in enumerate(lats):
-                if lat_mask[i]:
-                    for j, lon in enumerate(lons):
-                        if lon_mask[j] and not np.isnan(slopes[i, j]):
-                            region_slopes.append(slopes[i, j])
-            
-            if len(region_slopes) > 0:
-                region_stats.append({
-                    'Region': region_name,
-                    'Mean Trend (days/dec)': f"{np.mean(region_slopes):.2f}",
-                    'Median': f"{np.median(region_slopes):.2f}",
-                    'Grid Cells': len(region_slopes)
-                })
-        
-        if region_stats:
-            df_regions = pd.DataFrame(region_stats)
-            st.dataframe(df_regions, use_container_width=True, hide_index=True)
+        if len(region_slopes) > 0:
+            region_stats.append({
+                'Region': region_name,
+                'Mean Trend (days/dec)': f"{np.mean(region_slopes):.2f}",
+                'Median': f"{np.median(region_slopes):.2f}",
+                'Grid Cells': len(region_slopes)
+            })
+    
+    if region_stats:
+        df_regions = pd.DataFrame(region_stats)
+        st.dataframe(df_regions, use_container_width=True, hide_index=True)
 
 
 # Footer

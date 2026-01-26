@@ -1,3 +1,6 @@
+
+Copy
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -12,10 +15,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
-from heatday_slope_calculator_optimized import (
-    calculate_heatday_trends_optimized, 
-    plot_heatday_slopes
-)
 
 # Load data function
 @st.cache_data
@@ -903,6 +902,74 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+
+# ============================================================================
+# HEAT DAY SLOPE CALCULATION FUNCTION
+# ============================================================================
+
+@st.cache_data
+def calculate_heatday_trends_for_map(era5_file, percentile=0.98, months=[3,4,5,6,7,8,9,10]):
+    """
+    Calculate heat day trends using date-specific percentiles (optimized)
+    Returns: lats, lons, slopes, r_squared, p_values
+    """
+    # Load data
+    ds = xr.open_dataset(era5_file)
+    temp = ds['t2m']
+    temp_c = temp - 273.15  # Convert K to C
+    
+    # Determine time dimension
+    time_dim = 'valid_time' if 'valid_time' in temp_c.dims else 'time'
+    
+    # Add time coordinates
+    temp_c = temp_c.assign_coords({
+        'month': (time_dim, temp_c[time_dim].dt.month.values),
+        'year': (time_dim, temp_c[time_dim].dt.year.values),
+        'dayofyear': (time_dim, temp_c[time_dim].dt.dayofyear.values)
+    })
+    
+    # Filter to summer months
+    summer_mask = temp_c['month'].isin(months)
+    temp_summer = temp_c.where(summer_mask, drop=True)
+    
+    # Calculate date-specific percentiles using groupby
+    percentile_thresholds = temp_summer.groupby('dayofyear').quantile(percentile, dim=time_dim)
+    
+    # For each day, check if it exceeds its threshold
+    is_heatday = temp_summer.groupby('dayofyear') > percentile_thresholds
+    
+    # Count heat days per year for each grid cell
+    heatdays_per_year = is_heatday.groupby('year').sum(dim=time_dim)
+    
+    # Calculate linear trends
+    years = heatdays_per_year.year.values
+    lats = heatdays_per_year.latitude.values
+    lons = heatdays_per_year.longitude.values
+    
+    # Initialize output arrays
+    slopes = np.full((len(lats), len(lons)), np.nan)
+    r_squared = np.full((len(lats), len(lons)), np.nan)
+    p_values = np.full((len(lats), len(lons)), np.nan)
+    
+    # Calculate trends for each grid cell
+    for i in range(len(lats)):
+        for j in range(len(lons)):
+            heat_series = heatdays_per_year.isel(latitude=i, longitude=j).values
+            
+            if not np.any(np.isnan(heat_series)) and len(heat_series) > 2:
+                try:
+                    slope, intercept, r_val, p_val, std_err = stats.linregress(years, heat_series)
+                    slopes[i, j] = slope * 10  # Convert to days per decade
+                    r_squared[i, j] = r_val ** 2
+                    p_values[i, j] = p_val
+                except:
+                    pass
+    
+    ds.close()
+    
+    return lats, lons, slopes, r_squared, p_values
+
+
 # Title and description
 st.title("North Carolina Heat Index Analysis (1974-2024)")
 # st.markdown("""
@@ -918,7 +985,7 @@ st.title("North Carolina Heat Index Analysis (1974-2024)")
 
 
 # Tabs for different visualizations
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "Methodology",
     "Extreme Temperature Days", 
     "Heatwaves & Coldwaves",
@@ -926,7 +993,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8= st.tabs([
     "Regional Heatmap",
     "Additional Heat Maps",
     "Data Verification",
-    "Heat Day Slope Map"
+    "Heat Day Trends"
 ])
 
 # TAB 1: METHODOLOGY
@@ -3594,28 +3661,174 @@ with tab7:
             
             **→ Classified as Extreme Heat Day**
             """)
+
+
+
+
+
+
+
+
+
+# ============================================================================
+# TAB 8: HEAT DAY SLOPE MAP
+# ============================================================================
+
 with tab8:
-    st.subheader("Spatial Heat Day Trends")
+    st.header("Heat Day Trend Map")
     
-    # File input
-    era5_file = st.text_input(
-        "Path to ERA5 file:",
-        value="era5_temperature_nc_1974_2024.nc"
-    )
+    # Check if ERA5 file exists
+    era5_file = 'era5_temperature_nc_1974_2024.nc'
     
-    if st.button("Calculate Trends"):
-        lats, lons, slopes, r2, pvals, _ = calculate_heatday_trends_optimized(era5_file)
+    if not os.path.exists(era5_file):
+        st.warning(f"""
+        ### ERA5 Data Required
         
-        # Display map
-        fig = plot_heatday_slopes(lats, lons, slopes)
-        st.pyplot(fig)
+        This analysis requires ERA5 gridded climate data.
         
-        # Show stats
-        st.metric("Mean Trend", f"{np.nanmean(slopes):.2f} days/decade")
-
-
-
-
+        **File needed:** `{era5_file}`  
+        **Should contain:** Daily 2m temperature data (1974-2024)
+        
+        See the "Regional Heatmap" tab for download instructions.
+        """)
+        st.stop()
+    
+    st.markdown("""
+    This map shows **spatial trends in extreme heat days** across North Carolina and surrounding regions.
+    
+    **Methodology:**
+    - Date-specific 98th percentile thresholds (March-October)
+    - Count heat days each year at every grid cell
+    - Calculate linear trend 1974-2024
+    
+    **Red areas**: Increasing heat days  
+    **Blue areas**: Decreasing heat days
+    """)
+    
+    # Station coordinates
+    station_coords = {
+        'KAVL': (35.4363, -82.5415, 'Asheville'),
+        'KGSO': (36.0975, -79.9373, 'Greensboro'),
+        'KHSE': (35.2677, -75.5458, 'Cape Hatteras'),
+        'KILM': (34.2704, -77.9025, 'Wilmington'),
+        'KCLT': (35.2144, -80.9473, 'Charlotte'),
+        'KRDU': (35.8801, -78.7880, 'Raleigh-Durham'),
+    }
+    
+    # Options
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        show_significant = st.checkbox(
+            "Show only significant trends (p<0.05)",
+            value=False
+        )
+    
+    # Calculate button
+    if st.button("Generate Heat Day Trend Map", type="primary"):
+        
+        with st.spinner('Calculating heat day trends...'):
+            lats, lons, slopes, r_squared, p_values = calculate_heatday_trends_for_map(era5_file)
+        
+        # Apply significance filter if requested
+        if show_significant:
+            slopes_plot = slopes.copy()
+            slopes_plot[p_values >= 0.05] = np.nan
+            title_suffix = ' (p<0.05 only)'
+        else:
+            slopes_plot = slopes
+            title_suffix = ''
+        
+        # Interpolate for smoother visualization
+        with st.spinner('Creating map...'):
+            lats_plot, lons_plot, slopes_smooth = interpolate_grid(lats, lons, slopes_plot, factor=8)
+        
+        # Create meshgrid
+        lons_mesh, lats_mesh = np.meshgrid(lons_plot, lats_plot)
+        
+        # Create diverging colormap centered at zero
+        cmap = LinearSegmentedColormap.from_list(
+            'heat_trend',
+            ['#053061', '#2166ac', '#4393c3', '#92c5de', '#d1e5f0', 
+             '#f7f7f7',
+             '#fddbc7', '#f4a582', '#d6604d', '#b2182b', '#67001f']
+        )
+        
+        # Symmetric scale
+        max_abs = np.nanmax(np.abs(slopes_smooth))
+        
+        # Create map
+        fig = create_matplotlib_heatmap_inline(
+            lats_mesh, lons_mesh, slopes_smooth,
+            station_coords=station_coords,
+            title=f'Heat Day Trends (1974-2024){title_suffix}\nDate-Specific 98th Percentile Method',
+            cbar_label='Heat Day Trend (days/decade)',
+            cmap=cmap,
+            vmin=-max_abs,
+            vmax=max_abs,
+            diverging=True,
+            dpi=150
+        )
+        
+        st.pyplot(fig, use_container_width=True)
+        plt.close(fig)
+        
+        # Summary statistics
+        st.markdown("---")
+        st.markdown("### Summary Statistics")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            mean_slope = np.nanmean(slopes)
+            st.metric("Mean Trend", f"{mean_slope:.2f} days/decade")
+        
+        with col2:
+            median_slope = np.nanmedian(slopes)
+            st.metric("Median Trend", f"{median_slope:.2f} days/decade")
+        
+        with col3:
+            pct_increasing = np.sum(slopes > 0) / np.sum(~np.isnan(slopes)) * 100
+            st.metric("% Increasing", f"{pct_increasing:.1f}%")
+        
+        with col4:
+            pct_sig = np.sum(p_values < 0.05) / np.sum(~np.isnan(p_values)) * 100
+            st.metric("% Significant (p<0.05)", f"{pct_sig:.1f}%")
+        
+        # Regional breakdown
+        st.markdown("---")
+        st.markdown("### Regional Trends")
+        
+        regions = {
+            'Mountains (West)': {'lat': (35, 36.5), 'lon': (-84.5, -81)},
+            'Piedmont (Central)': {'lat': (35, 36.5), 'lon': (-81, -78.5)},
+            'Coastal Plain (East)': {'lat': (34, 36.5), 'lon': (-78.5, -75.5)}
+        }
+        
+        region_stats = []
+        
+        for region_name, bounds in regions.items():
+            lat_mask = (lats >= bounds['lat'][0]) & (lats <= bounds['lat'][1])
+            lon_mask = (lons >= bounds['lon'][0]) & (lons <= bounds['lon'][1])
+            
+            region_slopes = []
+            for i, lat in enumerate(lats):
+                if lat_mask[i]:
+                    for j, lon in enumerate(lons):
+                        if lon_mask[j] and not np.isnan(slopes[i, j]):
+                            region_slopes.append(slopes[i, j])
+            
+            if len(region_slopes) > 0:
+                region_stats.append({
+                    'Region': region_name,
+                    'Mean Trend (days/dec)': f"{np.mean(region_slopes):.2f}",
+                    'Median': f"{np.median(region_slopes):.2f}",
+                    'Grid Cells': len(region_slopes)
+                })
+        
+        if region_stats:
+            df_regions = pd.DataFrame(region_stats)
+            st.dataframe(df_regions, use_container_width=True, hide_index=True)
 
 
 # Footer

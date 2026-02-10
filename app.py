@@ -2201,7 +2201,7 @@ with tab4:
     # ============================================================================
     # Try project directory first, fall back to user-specified path
     import os
-    wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/"  # Project directory path
+    wwa_file_path = "/Users/shawnkairu/VSCODE/PlanetLab/NC Heat/NWS WWA"  # Project directory path
     if not os.path.exists(wwa_file_path):
         wwa_file_path = "NWS WWA/"  # Fallback path
     

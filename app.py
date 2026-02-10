@@ -1359,7 +1359,7 @@ with tab1:
         """)
         # ===== DATE-SPECIFIC BAR CHART =====
         st.markdown("---")
-        st.subheader("📊 Year-by-Year Comparison")
+        st.subheader("Year-by-Year Comparison")
         st.markdown("""
         This bar chart shows the actual heat index value for the selected date across all years.
         Red bars exceeded the 98th percentile threshold for that date.

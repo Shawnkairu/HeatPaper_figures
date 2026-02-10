@@ -2177,7 +2177,7 @@ with tab4:
     
     **Calculation Method:**
     1. For each station, we calculate the 98th percentile threshold for every calendar date using the full historical record (1974-2024)
-    2. For the comparison period (2005-2021), we count how many days exceed their date-specific 98th percentile threshold
+    2. For the comparison period (2005-2024), we count how many days exceed their date-specific 98th percentile threshold
     3. WWAs are counted as issued by the NWS for each year
     4. We then compare our extreme heat day counts to the official WWA counts
 
@@ -2244,7 +2244,7 @@ with tab4:
         """)
         st.stop()
     
-    # Calculate extreme heat days for 2005-2021
+    # Calculate extreme heat days for 2005-2024
     extreme_heat_comparison = {}
     
     for station in selected_stations:
@@ -2263,9 +2263,9 @@ with tab4:
         date_thresholds = df_march_oct_all.groupby('month_day')['heatindexmax2m'].quantile(0.98).reset_index()
         date_thresholds.columns = ['month_day', 'threshold_0.98']
         
-        # Now filter for 2005-2022 only
+        # Now filter for 2005-2024 only
         filtered = df_march_oct_all[(df_march_oct_all['year'] >= 2005) & 
-                                     (df_march_oct_all['year'] <= 2022)].copy()
+                                     (df_march_oct_all['year'] <= 2024)].copy()
         
         # Merge thresholds
         filtered = filtered.merge(date_thresholds, on='month_day', how='left')
@@ -2277,8 +2277,8 @@ with tab4:
         yearly_extreme = filtered[filtered['extreme_event']].groupby('year').size().reset_index()
         yearly_extreme.columns = ['year', 'extreme_heat_days']
         
-        # Ensure all years 2005-2021 are present
-        all_years = pd.DataFrame({'year': range(2005, 2022)})
+        # Ensure all years 2005-2024 are present
+        all_years = pd.DataFrame({'year': range(2005, 2025)})
         yearly_extreme = all_years.merge(yearly_extreme, on='year', how='left').fillna(0)
         yearly_extreme['extreme_heat_days'] = yearly_extreme['extreme_heat_days'].astype(int)
         
@@ -2286,7 +2286,7 @@ with tab4:
     
     # Create visualization matching the paper figure style
     st.markdown("### Number of Extreme Heat Days and WWAs Issued")
-    st.markdown("**March - October (2005-2021)**")
+    st.markdown("**March - October (2005-2024)**")
     
     stations_to_plot = [s for s in selected_stations if not wwa_data[s].empty or s in extreme_heat_comparison]
     

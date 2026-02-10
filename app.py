@@ -241,7 +241,66 @@ def analyze_date_specific_exceedances(df, date_str):
         'max': actual_values.max() if len(actual_values) > 0 else None,
         'min': actual_values.min() if len(actual_values) > 0 else None
     }
-
+def create_date_bar_chart_plotly(df, month, day, station_name, temp_column='heatindexmax2m', percentile=98):
+    """
+    Create a bar chart showing temperature for a specific date across all years.
+    Data should already be in Celsius.
+    """
+    df = df.copy()
+    df['month'] = df['datetime'].dt.month
+    df['day'] = df['datetime'].dt.day
+    
+    # Filter for the specific date
+    date_data = df[(df['month'] == month) & (df['day'] == day)].copy()
+    date_data = date_data.sort_values('year')
+    
+    if date_data.empty:
+        return None
+    
+    years = date_data['year'].values
+    temps = date_data[temp_column].values
+    
+    # Calculate threshold
+    threshold = np.nanpercentile(temps, percentile)
+    
+    # Create colors based on threshold
+    colors = ['#e74c3c' if t >= threshold else '#3498db' for t in temps]
+    
+    # Create figure
+    fig = go.Figure()
+    
+    fig.add_trace(go.Bar(
+        x=years,
+        y=temps,
+        marker_color=colors,
+        name='Heat Index'
+    ))
+    
+    # Add threshold line
+    fig.add_hline(
+        y=threshold,
+        line_dash="dash",
+        line_color="#c0392b",
+        line_width=2.5,
+        annotation_text=f"{percentile}th Percentile: {threshold:.1f}°C",
+        annotation_position="top left"
+    )
+    
+    # Count exceeding years
+    exceed_count = sum(1 for t in temps if not np.isnan(t) and t >= threshold)
+    
+    month_names = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                   'July', 'August', 'September', 'October', 'November', 'December']
+    
+    fig.update_layout(
+        title=f"{month_names[month]} {day} Maximum Heat Index by Year - {station_name}<br><sub>Bars exceeding {percentile}th percentile shown in red ({exceed_count} years)</sub>",
+        xaxis_title="Year",
+        yaxis_title="Maximum Heat Index (°C)",
+        template="plotly_white",
+        height=450
+    )
+    
+    return fig, threshold, exceed_count
 
 def apply_loess_smoothing(x, y, frac=0.2):
     """
@@ -1298,6 +1357,33 @@ with tab1:
         st.info(f"""
         **Cold Threshold:** Any {selected_winter_date.strftime('%B %d')} with heat index < {p2:.1f}°C is an extreme cold day
         """)
+        # ===== DATE-SPECIFIC BAR CHART =====
+        st.markdown("---")
+        st.subheader("📊 Year-by-Year Comparison")
+        st.markdown("""
+        This bar chart shows the actual heat index value for the selected date across all years.
+        Red bars exceeded the 98th percentile threshold for that date.
+        """)
+        
+        result = create_date_bar_chart_plotly(
+            demo_df, 
+            demo_month, 
+            demo_day, 
+            dfs[demo_station]['station_name'].iloc[0],
+            temp_column='heatindexmax2m',
+            percentile=98
+        )
+        
+        if result:
+            fig_bar, threshold, exceed_count = result
+            st.plotly_chart(fig_bar, use_container_width=True, key="date_bar_chart")
+            
+            # Show exceeding years
+            date_data = demo_df[(demo_df['month'] == demo_month) & (demo_df['datetime'].dt.day == demo_day)].copy()
+            exceeding_years = date_data[date_data['heatindexmax2m'] >= threshold]['year'].tolist()
+            
+            if exceeding_years:
+                st.info(f"**Years exceeding threshold:** {', '.join(map(str, exceeding_years))}")
 
 
 # TAB 2: EXTREME HEAT EVENTS

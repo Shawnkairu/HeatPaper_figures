@@ -2508,7 +2508,7 @@ with tab4:
                 # Update axes
                 fig.update_xaxes(
                     title_text="Year" if row == n_rows else "",
-                    range=[2004.5, 2021.5],
+                    range=[2004.5, 2024.5],
                     dtick=2,
                     row=row, col=col
                 )

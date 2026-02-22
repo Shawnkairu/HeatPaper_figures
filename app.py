@@ -3306,8 +3306,7 @@ c.retrieve(
 with tab7:
     st.header("Data Verification & Exploration")
     st.markdown("""
-    This tab provides transparency into how extreme heat events are counted, 
-    allowing verification of the methodology and exploration of year-by-year data.
+    This tab provides transparency into how extreme heat events are counted,
     """)
     
     # Create sub-tabs for organization
@@ -3766,8 +3765,8 @@ with tab7:
         st.info("""
         **How Extreme Heat Days are Classified:**
         
-        A day is classified as an **Extreme Heat Day** if:
-        - ✅ Heat Index > 98th percentile threshold for that specific date
+        A day is classified as an Extreme Heat Day if:
+        - Heat Index > 98th percentile threshold for that specific date
         
         The date-specific percentile approach ensures that "extreme" is defined relative 
         to what's normal for that particular time of year at that location.
@@ -3781,10 +3780,10 @@ with tab7:
             
             st.markdown(f"""
             **{example_day['Date']}:**
-            - Heat Index: **{example_day['Heat Index (°C)']}°C**
+            - Heat Index: {example_day['Heat Index (°C)']}°C
             - 98th Percentile Threshold for {example_day['Month-Day']}: **{example_day['98th Percentile Threshold (°C)']}°C**
             
-            ✅ {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
+            {example_day['Heat Index (°C)']}°C > {example_day['98th Percentile Threshold (°C)']}°C (above threshold)  
             
             **→ Classified as Extreme Heat Day**
             """)

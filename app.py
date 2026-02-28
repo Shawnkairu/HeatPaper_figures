@@ -2673,7 +2673,7 @@ with tab4:
     """)
     
     # Load RAH WWA data for 2024
-    wwa_file_rah = '/mnt/user-data/uploads/wwa_202201010000_202412312359__3_.xlsx'
+    wwa_file_rah = 'wwa_202201010000_202412312359__3_.xlsx'
     if os.path.exists(wwa_file_rah):
         df_wwa_raw = pd.read_excel(wwa_file_rah)
         heat_wwa = df_wwa_raw[df_wwa_raw['phenomena'].isin(['HT', 'EH'])].copy()

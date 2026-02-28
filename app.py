@@ -2673,7 +2673,7 @@ with tab4:
             """)
             
             # Load RAH WWA data for 2024
-            wwa_file_rah = 'HeatPaper_figures/wwa_rah_2022_2024.xlsx'
+            wwa_file_rah = 'wwa_rah_2022_2024.xlsx'
             st.write(f"Looking for: {wwa_file_rah}")
             st.write(f"File exists: {os.path.exists(wwa_file_rah)}")
             st.write(f"Files in directory: {os.listdir('.')}")

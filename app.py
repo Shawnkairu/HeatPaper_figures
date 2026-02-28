@@ -2661,76 +2661,76 @@ with tab4:
             else:
                 st.markdown("**Interpretation:** The methodologies identified a similar number of events overall.")
 
-# ============================================================================
-    # 2024 WWA Day-by-Day Verification (KRDU Case Study)
-    # ============================================================================
-    st.markdown("---")
-    st.subheader("2024 Case Study: Do WWA Days Exceed 98th Percentile?")
-    
-    st.markdown("""
-    This analysis compares the 15 days in 2024 when NWS issued Heat Advisories/Warnings 
-    for Raleigh-Durham against our date-specific 98th percentile thresholds.
-    """)
-    
-    # Load RAH WWA data for 2024
-    wwa_file_rah = 'wwa_rah_2022_2024.xlsx'
-    st.write(f"Looking for: {wwa_file_rah}")
-    st.write(f"File exists: {os.path.exists(wwa_file_rah)}")
-    st.write(f"Files in directory: {os.listdir('.')}")
-    if os.path.exists(wwa_file_rah):
-        df_wwa_raw = pd.read_excel(wwa_file_rah)
-        heat_wwa = df_wwa_raw[df_wwa_raw['phenomena'].isin(['HT', 'EH'])].copy()
-        heat_wwa['issued_date'] = pd.to_datetime(heat_wwa['utc_issue'], errors='coerce')
-        heat_wwa['year'] = heat_wwa['issued_date'].dt.year
-        wwa_2024 = heat_wwa[heat_wwa['year'] == 2024]['issued_date'].dt.date.unique()
-        wwa_2024_dates = sorted([pd.to_datetime(d) for d in wwa_2024])
-
-        
-        # Get KRDU data
-        krdu_df = dfs['KRDU'].copy()
-        krdu_df['month_day'] = krdu_df['datetime'].dt.strftime('%m-%d')
-        
-        # Calculate thresholds
-        summer_krdu = krdu_df[krdu_df['month'].isin([3,4,5,6,7,8,9,10])]
-        thresholds = summer_krdu.groupby('month_day')['heatindexmax2m'].quantile(0.98).to_dict()
-        
-        # Build comparison table
-        comparison_data = []
-        for date in wwa_2024_dates:
-            month_day = date.strftime('%m-%d')
-            row_2024 = krdu_df[(krdu_df['year'] == 2024) & (krdu_df['month_day'] == month_day)]
-            if len(row_2024) > 0 and month_day in thresholds:
-                heat_val = row_2024['heatindexmax2m'].values[0]
-                thresh = thresholds[month_day]
-                comparison_data.append({
-                    'Date': date.strftime('%Y-%m-%d'),
-                    'Heat Index (°C)': round(heat_val, 1),
-                    '98th Pctl (°C)': round(thresh, 1),
-                    'Exceeds': '✅' if heat_val > thresh else '❌',
-                    'Diff (°C)': round(heat_val - thresh, 1)
-                })
-        
-        if comparison_data:
-            comp_df = pd.DataFrame(comparison_data)
-            exceeded_count = sum(1 for d in comparison_data if d['Exceeds'] == '✅')
+        # ============================================================================
+            # 2024 WWA Day-by-Day Verification (KRDU Case Study)
+            # ============================================================================
+            st.markdown("---")
+            st.subheader("2024 Case Study: Do WWA Days Exceed 98th Percentile?")
             
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("WWA Days in 2024", len(comparison_data))
-            with col2:
-                st.metric("Exceeded 98th Pctl", exceeded_count)
-            with col3:
-                st.metric("Did NOT Exceed", len(comparison_data) - exceeded_count)
-            
-            st.dataframe(comp_df, use_container_width=True, hide_index=True)
-            
-            st.info(f"""
-            **Key Finding:** Only {exceeded_count} of {len(comparison_data)} WWA days ({100*exceeded_count/len(comparison_data):.0f}%) 
-            exceeded the date-specific 98th percentile threshold. This suggests NWS fixed thresholds 
-            capture different events than our adaptive methodology.
+            st.markdown("""
+            This analysis compares the 15 days in 2024 when NWS issued Heat Advisories/Warnings 
+            for Raleigh-Durham against our date-specific 98th percentile thresholds.
             """)
-    else:
-        st.warning("2024 WWA detailed data not available. Upload `wwa_202201010000_202412312359__3_.xlsx`")
+            
+            # Load RAH WWA data for 2024
+            wwa_file_rah = 'wwa_rah_2022_2024.xlsx'
+            st.write(f"Looking for: {wwa_file_rah}")
+            st.write(f"File exists: {os.path.exists(wwa_file_rah)}")
+            st.write(f"Files in directory: {os.listdir('.')}")
+            if os.path.exists(wwa_file_rah):
+                df_wwa_raw = pd.read_excel(wwa_file_rah)
+                heat_wwa = df_wwa_raw[df_wwa_raw['phenomena'].isin(['HT', 'EH'])].copy()
+                heat_wwa['issued_date'] = pd.to_datetime(heat_wwa['utc_issue'], errors='coerce')
+                heat_wwa['year'] = heat_wwa['issued_date'].dt.year
+                wwa_2024 = heat_wwa[heat_wwa['year'] == 2024]['issued_date'].dt.date.unique()
+                wwa_2024_dates = sorted([pd.to_datetime(d) for d in wwa_2024])
+        
+                
+                # Get KRDU data
+                krdu_df = dfs['KRDU'].copy()
+                krdu_df['month_day'] = krdu_df['datetime'].dt.strftime('%m-%d')
+                
+                # Calculate thresholds
+                summer_krdu = krdu_df[krdu_df['month'].isin([3,4,5,6,7,8,9,10])]
+                thresholds = summer_krdu.groupby('month_day')['heatindexmax2m'].quantile(0.98).to_dict()
+                
+                # Build comparison table
+                comparison_data = []
+                for date in wwa_2024_dates:
+                    month_day = date.strftime('%m-%d')
+                    row_2024 = krdu_df[(krdu_df['year'] == 2024) & (krdu_df['month_day'] == month_day)]
+                    if len(row_2024) > 0 and month_day in thresholds:
+                        heat_val = row_2024['heatindexmax2m'].values[0]
+                        thresh = thresholds[month_day]
+                        comparison_data.append({
+                            'Date': date.strftime('%Y-%m-%d'),
+                            'Heat Index (°C)': round(heat_val, 1),
+                            '98th Pctl (°C)': round(thresh, 1),
+                            'Exceeds': '✅' if heat_val > thresh else '❌',
+                            'Diff (°C)': round(heat_val - thresh, 1)
+                        })
+                
+                if comparison_data:
+                    comp_df = pd.DataFrame(comparison_data)
+                    exceeded_count = sum(1 for d in comparison_data if d['Exceeds'] == '✅')
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("WWA Days in 2024", len(comparison_data))
+                    with col2:
+                        st.metric("Exceeded 98th Pctl", exceeded_count)
+                    with col3:
+                        st.metric("Did NOT Exceed", len(comparison_data) - exceeded_count)
+                    
+                    st.dataframe(comp_df, use_container_width=True, hide_index=True)
+                    
+                    st.info(f"""
+                    **Key Finding:** Only {exceeded_count} of {len(comparison_data)} WWA days ({100*exceeded_count/len(comparison_data):.0f}%) 
+                    exceeded the date-specific 98th percentile threshold. This suggests NWS fixed thresholds 
+                    capture different events than our adaptive methodology.
+                    """)
+            else:
+                st.warning("2024 WWA detailed data not available. Upload `wwa_202201010000_202412312359__3_.xlsx`")
         
 # TAB 5: REGIONAL HEATMAP (ERA5)
 with tab5:

@@ -2473,75 +2473,75 @@ with tab4:
                         row=row, col=col
                     )
             
-                # Separate overlapping vs non-overlapping years
-            if not extreme_data.empty and not wwa_df.empty:
-                combined_check = extreme_data.merge(wwa_df, on='year', how='outer').fillna(0)
-                overlapping = combined_check[combined_check['extreme_heat_days'] == combined_check['wwa_count']]
-                overlap_years = set(overlapping['year'].values)
-            else:
-                overlap_years = set()
-            
-            # Plot non-overlapping Extreme Heat Days (Red)
-            if not extreme_data.empty:
-                non_overlap_extreme = extreme_data[~extreme_data['year'].isin(overlap_years)]
-                if len(non_overlap_extreme) > 0:
+                    # Separate overlapping vs non-overlapping years
+                if not extreme_data.empty and not wwa_df.empty:
+                    combined_check = extreme_data.merge(wwa_df, on='year', how='outer').fillna(0)
+                    overlapping = combined_check[combined_check['extreme_heat_days'] == combined_check['wwa_count']]
+                    overlap_years = set(overlapping['year'].values)
+                else:
+                    overlap_years = set()
+                
+                # Plot non-overlapping Extreme Heat Days (Red)
+                if not extreme_data.empty:
+                    non_overlap_extreme = extreme_data[~extreme_data['year'].isin(overlap_years)]
+                    if len(non_overlap_extreme) > 0:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=non_overlap_extreme['year'],
+                                y=non_overlap_extreme['extreme_heat_days'],
+                                mode='markers',
+                                name='Extreme Heat Days',
+                                marker=dict(color='red', size=10, symbol='circle'),
+                                showlegend=(idx == 0),
+                                legendgroup='extreme',
+                            ),
+                            row=row, col=col
+                        )
+                
+                # Plot non-overlapping WWAs (Black)
+                if not wwa_df.empty:
+                    non_overlap_wwa = wwa_df[~wwa_df['year'].isin(overlap_years)]
+                    if len(non_overlap_wwa) > 0:
+                        fig.add_trace(
+                            go.Scatter(
+                                x=non_overlap_wwa['year'],
+                                y=non_overlap_wwa['wwa_count'],
+                                mode='markers',
+                                name='WWAs Issued',
+                                marker=dict(color='black', size=10, symbol='circle'),
+                                showlegend=(idx == 0),
+                                legendgroup='wwa',
+                            ),
+                            row=row, col=col
+                        )
+                
+                # Plot overlapping as offset circles
+                if len(overlap_years) > 0:
+                    overlap_data = combined_check[combined_check['year'].isin(overlap_years)]
+                    # Black circle slightly left
                     fig.add_trace(
                         go.Scatter(
-                            x=non_overlap_extreme['year'],
-                            y=non_overlap_extreme['extreme_heat_days'],
-                            mode='markers',
-                            name='Extreme Heat Days',
-                            marker=dict(color='red', size=10, symbol='circle'),
-                            showlegend=(idx == 0),
-                            legendgroup='extreme',
-                        ),
-                        row=row, col=col
-                    )
-            
-            # Plot non-overlapping WWAs (Black)
-            if not wwa_df.empty:
-                non_overlap_wwa = wwa_df[~wwa_df['year'].isin(overlap_years)]
-                if len(non_overlap_wwa) > 0:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=non_overlap_wwa['year'],
-                            y=non_overlap_wwa['wwa_count'],
-                            mode='markers',
-                            name='WWAs Issued',
+                            x=overlap_data['year'] - 0.15, 
+                            y=overlap_data['wwa_count'],
+                            mode='markers', 
+                            name='Equal Count',
                             marker=dict(color='black', size=10, symbol='circle'),
-                            showlegend=(idx == 0),
-                            legendgroup='wwa',
+                            showlegend=(idx == 0), 
+                            legendgroup='overlap',
                         ),
                         row=row, col=col
                     )
-            
-            # Plot overlapping as offset circles
-            if len(overlap_years) > 0:
-                overlap_data = combined_check[combined_check['year'].isin(overlap_years)]
-                # Black circle slightly left
-                fig.add_trace(
-                    go.Scatter(
-                        x=overlap_data['year'] - 0.15, 
-                        y=overlap_data['wwa_count'],
-                        mode='markers', 
-                        name='Equal Count',
-                        marker=dict(color='black', size=10, symbol='circle'),
-                        showlegend=(idx == 0), 
-                        legendgroup='overlap',
-                    ),
-                    row=row, col=col
-                )
-                # Red circle slightly right
-                fig.add_trace(
-                    go.Scatter(
-                        x=overlap_data['year'] + 0.15, 
-                        y=overlap_data['extreme_heat_days'],
-                        mode='markers',
-                        marker=dict(color='red', size=10, symbol='circle'),
-                        showlegend=False,
-                    ),
-                    row=row, col=col
-                )
+                    # Red circle slightly right
+                    fig.add_trace(
+                        go.Scatter(
+                            x=overlap_data['year'] + 0.15, 
+                            y=overlap_data['extreme_heat_days'],
+                            mode='markers',
+                            marker=dict(color='red', size=10, symbol='circle'),
+                            showlegend=False,
+                        ),
+                        row=row, col=col
+                    )
             
                 # Update axes
                 fig.update_xaxes(

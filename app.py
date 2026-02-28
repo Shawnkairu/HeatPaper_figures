@@ -2515,23 +2515,29 @@ with tab4:
                         row=row, col=col
                     )
             
-            # Plot overlapping as half-circles
+            # Plot overlapping as offset circles
             if len(overlap_years) > 0:
                 overlap_data = combined_check[combined_check['year'].isin(overlap_years)]
+                # Black circle slightly left
                 fig.add_trace(
                     go.Scatter(
-                        x=overlap_data['year'], y=overlap_data['wwa_count'],
-                        mode='markers', name='Equal Count',
-                        marker=dict(color='black', size=10, symbol='circle-left'),
-                        showlegend=(idx == 0), legendgroup='overlap',
+                        x=overlap_data['year'] - 0.15, 
+                        y=overlap_data['wwa_count'],
+                        mode='markers', 
+                        name='Equal Count',
+                        marker=dict(color='black', size=10, symbol='circle'),
+                        showlegend=(idx == 0), 
+                        legendgroup='overlap',
                     ),
                     row=row, col=col
                 )
+                # Red circle slightly right
                 fig.add_trace(
                     go.Scatter(
-                        x=overlap_data['year'], y=overlap_data['extreme_heat_days'],
+                        x=overlap_data['year'] + 0.15, 
+                        y=overlap_data['extreme_heat_days'],
                         mode='markers',
-                        marker=dict(color='red', size=10, symbol='circle-right'),
+                        marker=dict(color='red', size=10, symbol='circle'),
                         showlegend=False,
                     ),
                     row=row, col=col

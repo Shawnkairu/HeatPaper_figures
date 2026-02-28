@@ -2671,12 +2671,20 @@ with tab4:
             This analysis compares the 15 days in 2024 when NWS issued Heat Advisories/Warnings 
             for Raleigh-Durham against our date-specific 98th percentile thresholds.
             """)
+            st.markdown("""
+            **Note on Counts:** The NWS issued **18 WWA event records** for Wake County in 2024, 
+            but these covered only **15 unique calendar dates**. Three days had both a Heat Advisory (HT) 
+            AND an Excessive Heat Warning (EH) issued:
+            - July 5: HT + EH
+            - July 6: HT + EH  
+            - July 15: HT + EH
+            
+            For comparing against heat index data, we use the **15 unique dates** since each calendar day 
+            has one heat index value regardless of how many advisories were issued.
+            """)
             
             # Load RAH WWA data for 2024
             wwa_file_rah = 'wwa_rah_2022_2024.xlsx'
-            st.write(f"Looking for: {wwa_file_rah}")
-            st.write(f"File exists: {os.path.exists(wwa_file_rah)}")
-            st.write(f"Files in directory: {os.listdir('.')}")
             if os.path.exists(wwa_file_rah):
                 df_wwa_raw = pd.read_excel(wwa_file_rah)
                 heat_wwa = df_wwa_raw[df_wwa_raw['phenomena'].isin(['HT', 'EH'])].copy()

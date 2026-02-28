@@ -2672,14 +2672,14 @@ with tab4:
             for Raleigh-Durham against our date-specific 98th percentile thresholds.
             """)
             st.markdown("""
-            **Note on Counts:** The NWS issued **18 WWA event records** for Wake County in 2024, 
-            but these covered only **15 unique calendar dates**. Three days had both a Heat Advisory (HT) 
+            **Note on Counts:** The NWS issued 18 WWA event records for the Raleigh-Durham Area in 2024, 
+            but these covered only 15 unique calendar dates. Three days had both a Heat Advisory (HT) 
             AND an Excessive Heat Warning (EH) issued:
             - July 5: HT + EH
             - July 6: HT + EH  
             - July 15: HT + EH
             
-            For comparing against heat index data, we use the **15 unique dates** since each calendar day 
+            For comparing against heat index data, we use the 15 unique dates since each calendar day 
             has one heat index value regardless of how many advisories were issued.
             """)
             

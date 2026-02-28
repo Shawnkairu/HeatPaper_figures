@@ -2674,6 +2674,9 @@ with tab4:
     
     # Load RAH WWA data for 2024
     wwa_file_rah = 'wwa_rah_2022_2024.xlsx'
+    st.write(f"Looking for: {wwa_file_rah}")
+    st.write(f"File exists: {os.path.exists(wwa_file_rah)}")
+    st.write(f"Files in directory: {os.listdir('.')}")
     if os.path.exists(wwa_file_rah):
         df_wwa_raw = pd.read_excel(wwa_file_rah)
         heat_wwa = df_wwa_raw[df_wwa_raw['phenomena'].isin(['HT', 'EH'])].copy()
@@ -2681,6 +2684,7 @@ with tab4:
         heat_wwa['year'] = heat_wwa['issued_date'].dt.year
         wwa_2024 = heat_wwa[heat_wwa['year'] == 2024]['issued_date'].dt.date.unique()
         wwa_2024_dates = sorted([pd.to_datetime(d) for d in wwa_2024])
+
         
         # Get KRDU data
         krdu_df = dfs['KRDU'].copy()

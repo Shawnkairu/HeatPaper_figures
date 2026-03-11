@@ -334,7 +334,7 @@ def process_era5_data(era5_file='era5_temperature_nc_1974_2024.nc'):
         # Open dataset
         ds = xr.open_dataset(era5_file)
         
-        # Get temperature (t2m) and convert K to Â°C
+        # Get temperature (t2m) and convert K to °C
         temp = ds['t2m']
         temp_c = temp - 273.15
         

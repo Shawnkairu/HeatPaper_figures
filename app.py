@@ -19,31 +19,15 @@ import matplotlib.patheffects as path_effects
 # Load data function
 @st.cache_data
 def load_data():
-    
-    project_folder = 'filtered_1974_2024'
-    local_folder = 'heat_index_files'
-    
-  
-    if os.path.exists(os.path.join(project_folder, 'KAVLheatindex19742024.xlsx')):
-        folder = project_folder
-        filenames = {
-            'KAVL': 'KAVLheatindex19742024.xlsx',
-            'KGSO': 'KGSOheatindex19742024.xlsx',
-            'KHSE': 'KHSEheatindex19742024.xlsx',
-            'KILM': 'KILMheatindex19742024.xlsx',
-            'KCLT': 'KLCTheatindex19742024.xlsx',
-            'KRDU': 'KRDUheatindex19742024.xlsx',
-        }
-    else:
-        folder = local_folder
-        filenames = {
-            'KAVL': 'KAVL-heatindex-1971-2021.xlsx',
-            'KGSO': 'KGSO-heatindex-1974-2024.xlsx',
-            'KHSE': 'KHSE-heatindex-1974-2024.xlsx',
-            'KILM': 'KILM-heatindex-1974-2024.xlsx',
-            'KCLT': 'KLCT-heatindex-1974-2024.xlsx',
-            'KRDU': 'KRDU-heat-index-1974-2024.xlsx',
-        }
+    folder = 'era5_processed'
+    filenames = {
+        'KAVL': 'KAVLheatindex19742024_era5.xlsx',
+        'KGSO': 'KGSOheatindex19742024_era5.xlsx',
+        'KHSE': 'KHSEheatindex19742024_era5.xlsx',
+        'KILM': 'KILMheatindex19742024_era5.xlsx',
+        'KCLT': 'KCLTheatindex19742024_era5.xlsx',
+        'KRDU': 'KRDUheatindex19742024_era5.xlsx',
+    }
     
     station_names = {
         'KAVL': 'Asheville (Mountains)',

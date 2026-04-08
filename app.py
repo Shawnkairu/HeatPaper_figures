@@ -1321,7 +1321,7 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val_winter:.1f}°C",
-            annotation_position="top left"
+            annotation_position="top"
         )
         
         fig_winter.update_layout(

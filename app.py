@@ -1418,7 +1418,7 @@ with tab2:
         fig_heat = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
-            y_title="Count"
+            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",

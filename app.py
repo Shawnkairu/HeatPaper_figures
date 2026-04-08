@@ -1231,13 +1231,13 @@ with tab1:
         # )
         
         fig_summer.update_layout(
-            font_size = 18,
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=600,
             showlegend=False,
-            template="plotly_white"
+            template="plotly_white",
+            font_size = 18,
         )
         
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")

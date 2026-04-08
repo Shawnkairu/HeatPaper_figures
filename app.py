@@ -264,7 +264,8 @@ def create_date_bar_chart_plotly(df, month, day, station_name, temp_column='heat
         line_color="#c0392b",
         line_width=2.5,
         annotation_text=f"{percentile}th Percentile: {threshold:.1f}°C",
-        annotation_position="top left"
+        annotation_position="top left",
+        annotation=dict(font=dict(size=18)),
     )
     
     # Count exceeding years
@@ -274,11 +275,21 @@ def create_date_bar_chart_plotly(df, month, day, station_name, temp_column='heat
                    'July', 'August', 'September', 'October', 'November', 'December']
     
     fig.update_layout(
-        title=f"{month_names[month]} {day} Maximum Heat Index by Year - {station_name}<br>",
-        xaxis_title="Year",
-        yaxis_title="Maximum Heat Index (°C)",
+        title=dict(
+            text=f"{month_names[month]} {day} Maximum Heat Index by Year - {station_name}<br>",
+            font=dict(size=22),
+        ),
+        xaxis=dict(
+            title=dict(text="Year", font=dict(size=20)),
+            tickfont=dict(size=18),
+        ),
+        yaxis=dict(
+            title=dict(text="Maximum Heat Index (°C)", font=dict(size=20)),
+            tickfont=dict(size=18),
+        ),
         template="plotly_white",
-        height=450
+        height=450,
+        font=dict(size=20),
     )
     
     return fig, threshold, exceed_count
@@ -1494,7 +1505,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="Max HI > 98p (LOESS)", 
+                    name="Max HI > 98p",
                     mode='lines', 
                     line=dict(color='darkred', width=2.5),
                     legendgroup="heat_max", 
@@ -1536,7 +1547,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="Min HI > 98p (LOESS)", 
+                    name="Min HI > 98p",
                     mode='lines', 
                     line=dict(color='#FFA500', width=2.5),
                     legendgroup="heat_min", 
@@ -1569,28 +1580,32 @@ with tab2:
         ])
         
         fig_heat.update_layout(
-            title_text="Extreme Heat Days by Station (1974-2024)<br>",
+            title=dict(text="Extreme Heat Days by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
             showlegend=True,
             template="plotly_white",
+            font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=14)
+                font=dict(size=18),
             )
         )
-        fig_heat.update_annotations(font_size=14)
-        fig_heat.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
+        fig_heat.update_annotations(font_size=18)
+        fig_heat.update_xaxes(
+            showgrid=True, gridwidth=1, gridcolor='LightGray',
+            title_font=dict(size=20), tickfont=dict(size=18),
+        )
         fig_heat.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 20],
             title_text="Count",
-            tickfont=dict(size=12)
+            title_font=dict(size=20), tickfont=dict(size=18),
         )
         
         st.plotly_chart(fig_heat, use_container_width=True, key="extreme_heat_facet")
@@ -1698,7 +1713,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="Max HI < 2p (LOESS)", 
+                    name="Max HI < 2p",
                     mode='lines', 
                     line=dict(color='navy', width=2.5),
                     legendgroup="cold_max", 
@@ -1712,7 +1727,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="Max HI trend", 
+                    name="Max HI trend",
                     mode='lines', 
                     line=dict(color='navy', width=1.5, dash='dash'),
                     legendgroup="cold_max_reg", 
@@ -1740,7 +1755,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="Min HI < 2p (LOESS)", 
+                    name="Min HI < 2p",
                     mode='lines', 
                     line=dict(color='skyblue', width=2.5),
                     legendgroup="cold_min", 
@@ -1754,7 +1769,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_min,
-                    name="Min HI trend", 
+                    name="Min HI trend",
                     mode='lines', 
                     line=dict(color='skyblue', width=1.5, dash='dash'),
                     legendgroup="cold_min_reg", 
@@ -1773,28 +1788,32 @@ with tab2:
         ])
         
         fig_cold.update_layout(
-            title_text="Extreme Cold Days by Station (1974-2023)<br>",
+            title=dict(text="Extreme Cold Days by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
             showlegend=True,
             template="plotly_white",
+            font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=14)
+                font=dict(size=18),
             )
         )
-        fig_cold.update_annotations(font_size=14)
-        fig_cold.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
+        fig_cold.update_annotations(font_size=18)
+        fig_cold.update_xaxes(
+            showgrid=True, gridwidth=1, gridcolor='LightGray',
+            title_font=dict(size=20), tickfont=dict(size=18),
+        )
         fig_cold.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
             title_text="Count",
-            tickfont=dict(size=12)
+            title_font=dict(size=20), tickfont=dict(size=18),
         )
         
         st.plotly_chart(fig_cold, use_container_width=True, key="extreme_cold_facet")
@@ -1923,7 +1942,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="HI-max Heatwaves (LOESS)", 
+                    name="HI-max Heatwaves",
                     mode='lines', 
                     line=dict(color='red', width=2.5),
                     legendgroup="heatwave_max", 
@@ -1965,7 +1984,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="HI-min Heatwaves (LOESS)", 
+                    name="HI-min Heatwaves",
                     mode='lines', 
                     line=dict(color='orange', width=2.5),
                     legendgroup="heatwave_min", 
@@ -1998,28 +2017,32 @@ with tab3:
         ])
         
         fig_heatwaves.update_layout(
-            title_text="Heatwaves by Station (1974-2024)<br>",
+            title=dict(text="Heatwaves by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
             showlegend=True,
             template="plotly_white",
+            font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=14)
+                font=dict(size=18),
             )
         )
-        fig_heatwaves.update_annotations(font_size=14)
-        fig_heatwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
+        fig_heatwaves.update_annotations(font_size=18)
+        fig_heatwaves.update_xaxes(
+            showgrid=True, gridwidth=1, gridcolor='LightGray',
+            title_font=dict(size=20), tickfont=dict(size=18),
+        )
         fig_heatwaves.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
             title_text="Count",
-            tickfont=dict(size=12)
+            title_font=dict(size=20), tickfont=dict(size=18),
         )
         
         st.plotly_chart(fig_heatwaves, use_container_width=True, key="heatwaves_facet")
@@ -2140,7 +2163,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="HI-max Coldwaves (LOESS)", 
+                    name="HI-max Coldwaves",
                     mode='lines', 
                     line=dict(color='darkblue', width=2.5),
                     legendgroup="coldwave_max", 
@@ -2154,7 +2177,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="HI-max trend", 
+                    name="HI-max trend",
                     mode='lines', 
                     line=dict(color='darkblue', width=1.5, dash='dash'),
                     legendgroup="coldwave_max_reg", 
@@ -2182,7 +2205,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="HI-min Coldwaves (LOESS)", 
+                    name="HI-min Coldwaves",
                     mode='lines', 
                     line=dict(color='lightblue', width=2.5),
                     legendgroup="coldwave_min", 
@@ -2196,7 +2219,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_min,
-                    name="HI-min trend", 
+                    name="HI-min trend",
                     mode='lines', 
                     line=dict(color='lightblue', width=1.5, dash='dash'),
                     legendgroup="coldwave_min_reg", 
@@ -2215,28 +2238,32 @@ with tab3:
         ])
         
         fig_coldwaves.update_layout(
-            title_text="Coldwaves by Station (1974-2023)<br>",
+            title=dict(text="Coldwaves by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
             showlegend=True,
             template="plotly_white",
+            font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
                 y=1.02,
                 xanchor="center",
                 x=0.5,
-                font=dict(size=14)
+                font=dict(size=18),
             )
         )
-        fig_coldwaves.update_annotations(font_size=14)
-        fig_coldwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
+        fig_coldwaves.update_annotations(font_size=18)
+        fig_coldwaves.update_xaxes(
+            showgrid=True, gridwidth=1, gridcolor='LightGray',
+            title_font=dict(size=20), tickfont=dict(size=18),
+        )
         fig_coldwaves.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 6],
             title_text="Count",
-            tickfont=dict(size=12)
+            title_font=dict(size=20), tickfont=dict(size=18),
         )
         
         st.plotly_chart(fig_coldwaves, use_container_width=True, key="coldwaves_facet")
@@ -2537,7 +2564,7 @@ with tab4:
                             mode='markers', 
                             name='Equal Count',
                             marker=dict(color='black', size=10, symbol='circle'),
-                            showlegend=(idx == 0), 
+                            showlegend=False,
                             legendgroup='overlap',
                         ),
                         row=row, col=col
@@ -2573,24 +2600,40 @@ with tab4:
                     row=row, col=col
                 )
         
+            # Legend-only trace: black + red dots slightly offset (matches on-plot equal-count styling)
+            fig.add_trace(
+                go.Scatter(
+                    x=[2004.38, 2004.46],
+                    y=[0, 0],
+                    mode='markers',
+                    marker=dict(size=10, color=['black', 'red'], symbol='circle'),
+                    name='Equal Count',
+                    showlegend=True,
+                    visible='legendonly',
+                    hoverinfo='skip',
+                ),
+                row=1, col=1,
+            )
+        
             # Update layout
             fig.update_layout(
                 height=350 * n_rows,
                 showlegend=True,
+                font=dict(size=20),
                 legend=dict(
                     orientation="h",
                     yanchor="top",
                     y=-0.15,
                     xanchor="center",
                     x=0.5,
-                    font=dict(size=16)
+                    font=dict(size=18),
                 ),
                 template="plotly_white",
                 hovermode='closest'
             )
-            fig.update_annotations(font_size=14)
-            fig.update_xaxes(tickfont=dict(size=12))
-            fig.update_yaxes(tickfont=dict(size=12))
+            fig.update_annotations(font_size=18)
+            fig.update_xaxes(title_font=dict(size=20), tickfont=dict(size=18))
+            fig.update_yaxes(title_font=dict(size=20), tickfont=dict(size=18))
         
             st.plotly_chart(fig, use_container_width=True)
         

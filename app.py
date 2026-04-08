@@ -1231,7 +1231,7 @@ with tab1:
         # )
         
         fig_summer.update_layout(
-            title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(demo_data)} years of data (1974-2024)</sub>",
+            title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
@@ -1325,7 +1325,7 @@ with tab1:
         )
         
         fig_winter.update_layout(
-            title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br><sub>Showing {len(winter_data)} years of data (1974-2024)</sub>",
+            title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
             height=450,
@@ -1418,7 +1418,6 @@ with tab2:
         fig_heat = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
-            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -1560,7 +1559,7 @@ with tab2:
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 20],
-            title_text="",
+            title_text="Count",
             tickfont=dict(size=12)
         )
         
@@ -1623,7 +1622,6 @@ with tab2:
         fig_cold = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
-            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -1765,7 +1763,7 @@ with tab2:
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
-            title_text="",
+            title_text="Count",
             tickfont=dict(size=12)
         )
         
@@ -1849,7 +1847,6 @@ with tab3:
         fig_heatwaves = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
-            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -1991,7 +1988,7 @@ with tab3:
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
-            title_text="",
+            title_text="Count",
             tickfont=dict(size=12)
         )
         

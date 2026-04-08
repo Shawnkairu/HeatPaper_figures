@@ -2067,7 +2067,6 @@ with tab3:
         fig_coldwaves = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
-            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -2209,7 +2208,7 @@ with tab3:
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 6],
-            title_text="",
+            title_text="Count",
             tickfont=dict(size=12)
         )
         

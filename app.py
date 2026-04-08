@@ -1584,7 +1584,7 @@ with tab2:
         fig_heat.update_layout(
             title=dict(text="Extreme Heat Days by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=130, l=60, r=50, b=60),
+            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
@@ -1595,7 +1595,7 @@ with tab2:
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=56,
+                tracegroupgap=100,
                 itemwidth=48,
                 itemsizing="constant",
             )
@@ -1796,7 +1796,7 @@ with tab2:
         fig_cold.update_layout(
             title=dict(text="Extreme Cold Days by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=130, l=60, r=50, b=60),
+            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
@@ -1807,7 +1807,7 @@ with tab2:
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=56,
+                tracegroupgap=100,
                 itemwidth=48,
                 itemsizing="constant",
             )
@@ -2029,7 +2029,7 @@ with tab3:
         fig_heatwaves.update_layout(
             title=dict(text="Heatwaves by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=130, l=60, r=50, b=60),
+            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
@@ -2040,7 +2040,7 @@ with tab3:
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=56,
+                tracegroupgap=100,
                 itemwidth=48,
                 itemsizing="constant",
             )
@@ -2254,7 +2254,7 @@ with tab3:
         fig_coldwaves.update_layout(
             title=dict(text="Coldwaves by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=130, l=60, r=50, b=60),
+            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
@@ -2265,7 +2265,7 @@ with tab3:
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=56,
+                tracegroupgap=100,
                 itemwidth=48,
                 itemsizing="constant",
             )
@@ -2618,37 +2618,6 @@ with tab4:
                     row=row, col=col
                 )
         
-            # Equal count: Plotly merges multi-color markers into one grey legend symbol, so use
-            # two legend-only traces (black = WWA, red = extreme) in one legend group.
-            _eq_leg = '\u200b'  # zero-width label so the row shows two dots + group title only
-            fig.add_trace(
-                go.Scatter(
-                    x=[None], y=[None],
-                    mode='markers',
-                    marker=dict(size=10, color='black', symbol='circle', line=dict(width=0)),
-                    name=_eq_leg,
-                    showlegend=True,
-                    visible='legendonly',
-                    hoverinfo='skip',
-                    legendgroup='equal_count',
-                    legendgrouptitle=dict(text='Equal count'),
-                ),
-                row=1, col=1,
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=[None], y=[None],
-                    mode='markers',
-                    marker=dict(size=10, color='red', symbol='circle', line=dict(width=0)),
-                    name=_eq_leg,
-                    showlegend=True,
-                    visible='legendonly',
-                    hoverinfo='skip',
-                    legendgroup='equal_count',
-                ),
-                row=1, col=1,
-            )
-        
             # Update layout
             fig.update_layout(
                 height=350 * n_rows,
@@ -2670,6 +2639,19 @@ with tab4:
             fig.update_yaxes(title_font=dict(size=20), tickfont=dict(size=18))
         
             st.plotly_chart(fig, use_container_width=True)
+            # Plotly cannot draw two marker colors in one legend row; add matching key below chart.
+            st.markdown(
+                '<div style="display:flex;justify-content:center;align-items:center;gap:8px;'
+                'margin-top:-18px;margin-bottom:8px;font-size:18px;color:#444;'
+                'font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">'
+                '<span style="display:inline-flex;align-items:center;white-space:nowrap">'
+                '<span style="color:#000;font-size:15px;line-height:1;margin-right:-5px">●</span>'
+                '<span style="color:#e00;font-size:15px;line-height:1">●</span>'
+                '</span>'
+                '<span>Equal count</span>'
+                '</div>',
+                unsafe_allow_html=True,
+            )
         
             # Summary statistics
             st.markdown("### Summary Statistics")

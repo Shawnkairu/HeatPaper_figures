@@ -1196,7 +1196,7 @@ with tab1:
             opacity=0.2,
             layer="below",
             line_width=0,
-            annotation_text="Extreme Heat (>98th %ile)",
+            annotation_text="Extreme Heat",
             annotation_position="top right",
             annotation=dict(font_size=12, font_color="darkred")
         )
@@ -1218,7 +1218,7 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val:.1f}°C",
-            annotation_position="top left"
+            annotation_position="top"
         )
         # # Add conservative cutoff line (32.2°C = 90°F)
         # fig_summer.add_vline(
@@ -1231,6 +1231,7 @@ with tab1:
         # )
         
         fig_summer.update_layout(
+            font_size = 18
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
@@ -1299,7 +1300,7 @@ with tab1:
             opacity=0.2,
             layer="below",
             line_width=0,
-            annotation_text="Extreme Cold (<2nd %ile)",
+            annotation_text="Extreme Cold",
             annotation_position="top left",
             annotation=dict(font_size=12, font_color="darkblue")
         )

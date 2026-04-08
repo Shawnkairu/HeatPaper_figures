@@ -1258,6 +1258,7 @@ with tab1:
             yaxis=dict(
                 title=dict(text="Frequency (Probability)", font=dict(size=20)),
                 tickfont=dict(size=18),
+                range=[0, 0.3],
             ),
             height=600,
             showlegend=False,
@@ -1367,6 +1368,7 @@ with tab1:
             yaxis=dict(
                 title=dict(text="Frequency (Probability)", font=dict(size=20)),
                 tickfont=dict(size=18),
+                range=[0, 0.4],
             ),
             height=600,
             showlegend=False,
@@ -1582,16 +1584,20 @@ with tab2:
         fig_heat.update_layout(
             title=dict(text="Extreme Heat Days by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
+            margin=dict(t=130, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.12,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
+                tracegroupgap=56,
+                itemwidth=48,
+                itemsizing="constant",
             )
         )
         fig_heat.update_annotations(font_size=18)
@@ -1790,16 +1796,20 @@ with tab2:
         fig_cold.update_layout(
             title=dict(text="Extreme Cold Days by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
+            margin=dict(t=130, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.12,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
+                tracegroupgap=56,
+                itemwidth=48,
+                itemsizing="constant",
             )
         )
         fig_cold.update_annotations(font_size=18)
@@ -2019,16 +2029,20 @@ with tab3:
         fig_heatwaves.update_layout(
             title=dict(text="Heatwaves by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
+            margin=dict(t=130, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.12,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
+                tracegroupgap=56,
+                itemwidth=48,
+                itemsizing="constant",
             )
         )
         fig_heatwaves.update_annotations(font_size=18)
@@ -2240,16 +2254,20 @@ with tab3:
         fig_coldwaves.update_layout(
             title=dict(text="Coldwaves by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
+            margin=dict(t=130, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.12,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
+                tracegroupgap=56,
+                itemwidth=48,
+                itemsizing="constant",
             )
         )
         fig_coldwaves.update_annotations(font_size=18)
@@ -2600,17 +2618,33 @@ with tab4:
                     row=row, col=col
                 )
         
-            # Legend-only trace: black + red dots slightly offset (matches on-plot equal-count styling)
+            # Equal count: Plotly merges multi-color markers into one grey legend symbol, so use
+            # two legend-only traces (black = WWA, red = extreme) in one legend group.
+            _eq_leg = '\u200b'  # zero-width label so the row shows two dots + group title only
             fig.add_trace(
                 go.Scatter(
-                    x=[2004.38, 2004.46],
-                    y=[0, 0],
+                    x=[None], y=[None],
                     mode='markers',
-                    marker=dict(size=10, color=['black', 'red'], symbol='circle'),
-                    name='Equal Count',
+                    marker=dict(size=10, color='black', symbol='circle', line=dict(width=0)),
+                    name=_eq_leg,
                     showlegend=True,
                     visible='legendonly',
                     hoverinfo='skip',
+                    legendgroup='equal_count',
+                    legendgrouptitle=dict(text='Equal count'),
+                ),
+                row=1, col=1,
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=[None], y=[None],
+                    mode='markers',
+                    marker=dict(size=10, color='red', symbol='circle', line=dict(width=0)),
+                    name=_eq_leg,
+                    showlegend=True,
+                    visible='legendonly',
+                    hoverinfo='skip',
+                    legendgroup='equal_count',
                 ),
                 row=1, col=1,
             )

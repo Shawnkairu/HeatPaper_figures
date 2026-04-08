@@ -274,7 +274,7 @@ def create_date_bar_chart_plotly(df, month, day, station_name, temp_column='heat
                    'July', 'August', 'September', 'October', 'November', 'December']
     
     fig.update_layout(
-        title=f"{month_names[month]} {day} Maximum Heat Index by Year - {station_name}<br><sub>Bars exceeding {percentile}th percentile shown in red ({exceed_count} years)</sub>",
+        title=f"{month_names[month]} {day} Maximum Heat Index by Year - {station_name}<br>",
         xaxis_title="Year",
         yaxis_title="Maximum Heat Index (°C)",
         template="plotly_white",

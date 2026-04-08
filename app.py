@@ -1540,7 +1540,7 @@ with tab2:
         ])
         
         fig_heat.update_layout(
-            title_text="Extreme Heat Days by Station (1974-2024)<br><sup>Days exceeding date-specific 98th percentile (March-October)</sup>",
+            title_text="Extreme Heat Days by Station (1974-2024)<br>",
             height=800,
             showlegend=True,
             template="plotly_white",

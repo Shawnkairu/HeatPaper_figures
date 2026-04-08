@@ -1623,6 +1623,7 @@ with tab2:
         fig_cold = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
+            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -1744,7 +1745,7 @@ with tab2:
         ])
         
         fig_cold.update_layout(
-            title_text="Extreme Cold Days by Station (1974-2023)<br><sup>Days below date-specific 2nd percentile (November-February)</sup>",
+            title_text="Extreme Cold Days by Station (1974-2023)<br>",
             height=800,
             showlegend=True,
             template="plotly_white",
@@ -1848,6 +1849,7 @@ with tab3:
         fig_heatwaves = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
+            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -1969,7 +1971,7 @@ with tab3:
         ])
         
         fig_heatwaves.update_layout(
-            title_text="Heatwaves by Station (1974-2024)<br><sup>2+ consecutive days exceeding date-specific 98th percentile (March-October)</sup>",
+            title_text="Heatwaves by Station (1974-2024)<br>",
             height=800,
             showlegend=True,
             template="plotly_white",
@@ -2065,6 +2067,7 @@ with tab3:
         fig_coldwaves = make_subplots(
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
+            y_title="Count",
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
@@ -2186,7 +2189,7 @@ with tab3:
         ])
         
         fig_coldwaves.update_layout(
-            title_text="Coldwaves by Station (1974-2023)<br><sup>2+ consecutive days below date-specific 2nd percentile (November-February)</sup>",
+            title_text="Coldwaves by Station (1974-2023)<br>",
             height=800,
             showlegend=True,
             template="plotly_white",

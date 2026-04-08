@@ -1198,7 +1198,7 @@ with tab1:
             line_width=0,
             annotation_text="Extreme Heat",
             annotation_position="top right",
-            annotation=dict(font_size=12, font_color="darkred")
+            annotation=dict(font_size=18, font_color="darkred")
         )
         
         # Add 98th percentile line
@@ -1237,7 +1237,7 @@ with tab1:
             height=600,
             showlegend=False,
             template="plotly_white",
-            font_size = 18,
+            font = dict( size = 18)
         )
         
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")

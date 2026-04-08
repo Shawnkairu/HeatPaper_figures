@@ -13,6 +13,9 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
+# Horizontal legends ignore layout.legend.tracegroupgap in Plotly; trailing em spaces widen gaps when saving images.
+_LEGEND_H_GAP = "\u2003" * 14
+
 # Load data function
 @st.cache_data
 def load_data():
@@ -1507,7 +1510,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="Max HI > 98p",
+                    name="Max HI > 98p" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='darkred', width=2.5),
                     legendgroup="heat_max", 
@@ -1521,7 +1524,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="Max HI trend", 
+                    name="Max HI trend" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='darkred', width=1.5, dash='dash'),
                     legendgroup="heat_max_reg", 
@@ -1549,7 +1552,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="Min HI > 98p",
+                    name="Min HI > 98p" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='#FFA500', width=2.5),
                     legendgroup="heat_min", 
@@ -1584,20 +1587,16 @@ with tab2:
         fig_heat.update_layout(
             title=dict(text="Extreme Heat Days by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.12,
+                y=1.02,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=100,
-                itemwidth=48,
-                itemsizing="constant",
             )
         )
         fig_heat.update_annotations(font_size=18)
@@ -1719,7 +1718,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="Max HI < 2p",
+                    name="Max HI < 2p" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='navy', width=2.5),
                     legendgroup="cold_max", 
@@ -1733,7 +1732,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="Max HI trend",
+                    name="Max HI trend" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='navy', width=1.5, dash='dash'),
                     legendgroup="cold_max_reg", 
@@ -1761,7 +1760,7 @@ with tab2:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="Min HI < 2p",
+                    name="Min HI < 2p" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='skyblue', width=2.5),
                     legendgroup="cold_min", 
@@ -1796,20 +1795,16 @@ with tab2:
         fig_cold.update_layout(
             title=dict(text="Extreme Cold Days by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.12,
+                y=1.02,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=100,
-                itemwidth=48,
-                itemsizing="constant",
             )
         )
         fig_cold.update_annotations(font_size=18)
@@ -1952,7 +1947,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="HI-max Heatwaves",
+                    name="HI-max Heatwaves" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='red', width=2.5),
                     legendgroup="heatwave_max", 
@@ -1966,7 +1961,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="HI-max trend", 
+                    name="HI-max trend" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='red', width=1.5, dash='dash'),
                     legendgroup="heatwave_max_reg", 
@@ -1994,7 +1989,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="HI-min Heatwaves",
+                    name="HI-min Heatwaves" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='orange', width=2.5),
                     legendgroup="heatwave_min", 
@@ -2029,20 +2024,16 @@ with tab3:
         fig_heatwaves.update_layout(
             title=dict(text="Heatwaves by Station (1974-2024)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.12,
+                y=1.02,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=100,
-                itemwidth=48,
-                itemsizing="constant",
             )
         )
         fig_heatwaves.update_annotations(font_size=18)
@@ -2177,7 +2168,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=max_smoothed,
-                    name="HI-max Coldwaves",
+                    name="HI-max Coldwaves" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='darkblue', width=2.5),
                     legendgroup="coldwave_max", 
@@ -2191,7 +2182,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=regression_max,
-                    name="HI-max trend",
+                    name="HI-max trend" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='darkblue', width=1.5, dash='dash'),
                     legendgroup="coldwave_max_reg", 
@@ -2219,7 +2210,7 @@ with tab3:
                 go.Scatter(
                     x=station_data['year'], 
                     y=min_smoothed,
-                    name="HI-min Coldwaves",
+                    name="HI-min Coldwaves" + _LEGEND_H_GAP,
                     mode='lines', 
                     line=dict(color='lightblue', width=2.5),
                     legendgroup="coldwave_min", 
@@ -2254,20 +2245,16 @@ with tab3:
         fig_coldwaves.update_layout(
             title=dict(text="Coldwaves by Station (1974-2023)<br>", font=dict(size=22)),
             height=800,
-            margin=dict(t=150, l=60, r=50, b=60),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.12,
+                y=1.02,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
-                tracegroupgap=100,
-                itemwidth=48,
-                itemsizing="constant",
             )
         )
         fig_coldwaves.update_annotations(font_size=18)
@@ -2618,11 +2605,12 @@ with tab4:
                     row=row, col=col
                 )
         
-            # Update layout
+            # Update layout (extra bottom margin so legend + equal-count key export cleanly)
             fig.update_layout(
                 height=350 * n_rows,
                 showlegend=True,
                 font=dict(size=20),
+                margin=dict(b=150),
                 legend=dict(
                     orientation="h",
                     yanchor="top",
@@ -2637,21 +2625,27 @@ with tab4:
             fig.update_annotations(font_size=18)
             fig.update_xaxes(title_font=dict(size=20), tickfont=dict(size=18))
             fig.update_yaxes(title_font=dict(size=20), tickfont=dict(size=18))
+            # Equal count: two colors in one Plotly legend row aren't supported; draw as figure
+            # annotations (paper coords) so PNG/SVG/HTML exports include the key.
+            _eq_paper_y = 0.055
+            _eq_paper_x = 0.5
+            fig.add_annotation(
+                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
+                xanchor="center", yanchor="bottom", text="●", showarrow=False,
+                font=dict(size=15, color="#000000"), xshift=-34,
+            )
+            fig.add_annotation(
+                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
+                xanchor="center", yanchor="bottom", text="●", showarrow=False,
+                font=dict(size=15, color="#e00000"), xshift=-22,
+            )
+            fig.add_annotation(
+                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
+                xanchor="left", yanchor="bottom", text=" Equal count", showarrow=False,
+                font=dict(size=16, color="#444444"), xshift=-8,
+            )
         
             st.plotly_chart(fig, use_container_width=True)
-            # Plotly cannot draw two marker colors in one legend row; add matching key below chart.
-            st.markdown(
-                '<div style="display:flex;justify-content:center;align-items:center;gap:8px;'
-                'margin-top:-18px;margin-bottom:8px;font-size:18px;color:#444;'
-                'font-family:system-ui,-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">'
-                '<span style="display:inline-flex;align-items:center;white-space:nowrap">'
-                '<span style="color:#000;font-size:15px;line-height:1;margin-right:-5px">●</span>'
-                '<span style="color:#e00;font-size:15px;line-height:1">●</span>'
-                '</span>'
-                '<span>Equal count</span>'
-                '</div>',
-                unsafe_allow_html=True,
-            )
         
             # Summary statistics
             st.markdown("### Summary Statistics")

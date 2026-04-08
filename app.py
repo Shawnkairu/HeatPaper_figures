@@ -1198,7 +1198,7 @@ with tab1:
             line_width=0,
             annotation_text="Extreme Heat",
             annotation_position="top right",
-            annotation=dict(font_size=18, font_color="darkred")
+            annotation=dict(font=dict(size=20, color="darkred")),
         )
         
         # Add 98th percentile line
@@ -1208,7 +1208,8 @@ with tab1:
             line_color="red", 
             line_width=3,
             annotation_text=f"98th Percentile: {p98:.1f}°C",
-            annotation_position="top"
+            annotation_position="top",
+            annotation=dict(font=dict(size=20)),
         )
         
         # Add mean line
@@ -1218,7 +1219,8 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val:.1f}°C",
-            annotation_position="top"
+            annotation_position="top",
+            annotation=dict(font=dict(size=20)),
         )
         # # Add conservative cutoff line (32.2°C = 90°F)
         # fig_summer.add_vline(
@@ -1231,13 +1233,25 @@ with tab1:
         # )
         
         fig_summer.update_layout(
-            title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
-            xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
-            yaxis_title="Frequency (Probability)",
+            title=dict(
+                text=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
+                font=dict(size=22),
+            ),
+            xaxis=dict(
+                title=dict(
+                    text=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
+                    font=dict(size=20),
+                ),
+                tickfont=dict(size=18),
+            ),
+            yaxis=dict(
+                title=dict(text="Frequency (Probability)", font=dict(size=20)),
+                tickfont=dict(size=18),
+            ),
             height=600,
             showlegend=False,
             template="plotly_white",
-            font = dict( size = 18)
+            font=dict(size=20),
         )
         
         st.plotly_chart(fig_summer, use_container_width=True, key="summer_methodology")
@@ -1302,7 +1316,7 @@ with tab1:
             line_width=0,
             annotation_text="Extreme Cold",
             annotation_position="top left",
-            annotation=dict(font_size=12, font_color="darkblue")
+            annotation=dict(font=dict(size=20, color="darkblue")),
         )
         
         # Add 2nd percentile line
@@ -1312,7 +1326,8 @@ with tab1:
             line_color="blue", 
             line_width=3,
             annotation_text=f"2nd Percentile: {p2:.1f}°C",
-            annotation_position="top"
+            annotation_position="top",
+            annotation=dict(font=dict(size=20)),
         )
         
         # Add mean line
@@ -1322,16 +1337,30 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val_winter:.1f}°C",
-            annotation_position="top"
+            annotation_position="top",
+            annotation=dict(font=dict(size=20)),
         )
         
         fig_winter.update_layout(
-            title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
-            xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
-            yaxis_title="Frequency (Probability)",
+            title=dict(
+                text=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
+                font=dict(size=22),
+            ),
+            xaxis=dict(
+                title=dict(
+                    text=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
+                    font=dict(size=20),
+                ),
+                tickfont=dict(size=18),
+            ),
+            yaxis=dict(
+                title=dict(text="Frequency (Probability)", font=dict(size=20)),
+                tickfont=dict(size=18),
+            ),
             height=600,
             showlegend=False,
-            template="plotly_white"
+            template="plotly_white",
+            font=dict(size=20),
         )
         
         st.plotly_chart(fig_winter, use_container_width=True, key="winter_methodology")

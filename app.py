@@ -1,6 +1,3 @@
-
-
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -1221,7 +1218,7 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val:.1f}°C",
-            annotation_position="bottom"
+            annotation_position="top left"
         )
         # # Add conservative cutoff line (32.2°C = 90°F)
         # fig_summer.add_vline(
@@ -1324,7 +1321,7 @@ with tab1:
             line_color="green", 
             line_width=2,
             annotation_text=f"Mean: {mean_val_winter:.1f}°C",
-            annotation_position="bottom"
+            annotation_position="top left"
         )
         
         fig_winter.update_layout(
@@ -1424,7 +1421,6 @@ with tab2:
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
-            y_title="Count"
         )
         
         for idx, station in enumerate(selected_stations):
@@ -1543,7 +1539,7 @@ with tab2:
         ])
         
         fig_heat.update_layout(
-            title_text="Extreme Heat Days by Station (1974-2023)<br><sup>Days exceeding date-specific 98th percentile (March-October)</sup>",
+            title_text="Extreme Heat Days by Station (1974-2024)<br><sup>Days exceeding date-specific 98th percentile (March-October)</sup>",
             height=800,
             showlegend=True,
             template="plotly_white",
@@ -1556,14 +1552,15 @@ with tab2:
                 font=dict(size=14)
             )
         )
-        
-        fig_heat.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_heat.update_annotations(font_size=14)
+        fig_heat.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
         fig_heat.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 20],
-            title_text="Count"
+            title_text="",
+            tickfont=dict(size=12)
         )
         
         st.plotly_chart(fig_heat, use_container_width=True, key="extreme_heat_facet")
@@ -1628,7 +1625,6 @@ with tab2:
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
-            y_title="Count"
         )
         
         for idx, station in enumerate(selected_stations):
@@ -1760,14 +1756,15 @@ with tab2:
                 font=dict(size=14)
             )
         )
-        
-        fig_cold.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_cold.update_annotations(font_size=14)
+        fig_cold.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
         fig_cold.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
-            title_text="Count"
+            title_text="",
+            tickfont=dict(size=12)
         )
         
         st.plotly_chart(fig_cold, use_container_width=True, key="extreme_cold_facet")
@@ -1835,7 +1832,7 @@ with tab3:
             min_extreme = identify_waves(min_extreme, 'extreme_event', min_consecutive=2)
             heatwave_min_counts = min_extreme[min_extreme['in_wave']].groupby('year').size()
             
-            for year in range(1974, 2024):  
+            for year in range(1974, 2025):  
                 heatwave_data.append({
                     'station': station,
                     'station_name': df['station_name'].iloc[0],
@@ -1853,7 +1850,6 @@ with tab3:
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
-            y_title="Count"
         )
         
         for idx, station in enumerate(selected_stations):
@@ -1985,14 +1981,15 @@ with tab3:
                 font=dict(size=14)
             )
         )
-        
-        fig_heatwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_heatwaves.update_annotations(font_size=14)
+        fig_heatwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
         fig_heatwaves.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 10],
-            title_text="Count"
+            title_text="",
+            tickfont=dict(size=12)
         )
         
         st.plotly_chart(fig_heatwaves, use_container_width=True, key="heatwaves_facet")
@@ -2070,7 +2067,6 @@ with tab3:
             vertical_spacing=0.15,
             horizontal_spacing=0.1,
             x_title="Year",
-            y_title="Count"
         )
         
         for idx, station in enumerate(selected_stations):
@@ -2202,14 +2198,15 @@ with tab3:
                 font=dict(size=14)
             )
         )
-        
-        fig_coldwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray')
+        fig_coldwaves.update_annotations(font_size=14)
+        fig_coldwaves.update_xaxes(showgrid=True, gridwidth=1, gridcolor='LightGray', tickfont=dict(size=12))
         fig_coldwaves.update_yaxes(
             showgrid=True, 
             gridwidth=1, 
             gridcolor='LightGray',
             range=[0, 6],
-            title_text="Count"
+            title_text="",
+            tickfont=dict(size=12)
         )
         
         st.plotly_chart(fig_coldwaves, use_container_width=True, key="coldwaves_facet")
@@ -2561,6 +2558,9 @@ with tab4:
                 template="plotly_white",
                 hovermode='closest'
             )
+            fig.update_annotations(font_size=14)
+            fig.update_xaxes(tickfont=dict(size=12))
+            fig.update_yaxes(tickfont=dict(size=12))
         
             st.plotly_chart(fig, use_container_width=True)
         

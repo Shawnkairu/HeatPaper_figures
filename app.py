@@ -1234,7 +1234,7 @@ with tab1:
             title=f"Summer: {selected_summer_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_summer_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
-            height=450,
+            height=600,
             showlegend=False,
             template="plotly_white"
         )
@@ -1328,7 +1328,7 @@ with tab1:
             title=f"Winter: {selected_winter_date.strftime('%B %d')} Heat Index Distribution at {dfs[demo_station]['station_name'].iloc[0]}<br>",
             xaxis_title=f"Temperature of {selected_winter_date.strftime('%B %d')} Across All Years (°C)",
             yaxis_title="Frequency (Probability)",
-            height=450,
+            height=600,
             showlegend=False,
             template="plotly_white"
         )
@@ -1419,7 +1419,7 @@ with tab2:
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
             vertical_spacing=0.15,
-            horizontal_spacing=0.1,
+            horizontal_spacing=0.05,
             x_title="Year",
         )
         

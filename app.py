@@ -1475,7 +1475,7 @@ with tab2:
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
             vertical_spacing=0.15,
-            horizontal_spacing=0.05,
+            horizontal_spacing=0.08,
             x_title="Year",
         )
         
@@ -1691,7 +1691,7 @@ with tab2:
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
             vertical_spacing=0.15,
-            horizontal_spacing=0.1,
+            horizontal_spacing=0.08,
             x_title="Year",
         )
         
@@ -1928,7 +1928,7 @@ with tab3:
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
             vertical_spacing=0.15,
-            horizontal_spacing=0.1,
+            horizontal_spacing=0.08,
             x_title="Year",
         )
         
@@ -2157,7 +2157,7 @@ with tab3:
             rows=2, cols=3,
             subplot_titles=[dfs[s]['station_name'].iloc[0] for s in selected_stations],
             vertical_spacing=0.15,
-            horizontal_spacing=0.1,
+            horizontal_spacing=0.08,
             x_title="Year",
         )
         

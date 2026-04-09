@@ -2512,8 +2512,8 @@ with tab4:
                     (" (Piedmont)" if "Raleigh" in dfs[s]['station_name'].iloc[0] else "")
                     for s in stations_to_plot
                 ],
-                vertical_spacing=0.15,
-                horizontal_spacing=0.10
+                vertical_spacing=0.18,
+                horizontal_spacing=0.14,
             )
         
             # Plot each station with vertical line style (matching the figure)
@@ -2650,15 +2650,16 @@ with tab4:
                     row=row, col=col
                 )
         
-            # Update layout
+            # Update layout (bottom margin: angled year labels + horizontal legend)
             fig.update_layout(
-                height=350 * n_rows,
+                height=380 * n_rows,
                 showlegend=True,
                 font=dict(size=20),
+                margin=dict(b=130, t=50),
                 legend=dict(
                     orientation="h",
                     yanchor="top",
-                    y=-0.15,
+                    y=-0.12,
                     xanchor="center",
                     x=0.5,
                     font=dict(size=18),
@@ -2668,9 +2669,10 @@ with tab4:
             )
             fig.update_annotations(font_size=18)
             fig.update_xaxes(
-                title_font=dict(size=20),
-                tickfont=dict(size=11),
-                tickangle=0,
+                title_font=dict(size=18),
+                title_standoff=18,
+                tickfont=dict(size=12),
+                tickangle=-45,
                 automargin=True,
             )
             fig.update_yaxes(title_font=dict(size=20), tickfont=dict(size=18))

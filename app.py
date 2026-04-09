@@ -13,8 +13,18 @@ import matplotlib.patches as mpatches
 from matplotlib.colors import LinearSegmentedColormap
 import matplotlib.patheffects as path_effects
 
-# Horizontal legends ignore layout.legend.tracegroupgap in Plotly; trailing em spaces widen gaps when saving images.
-_LEGEND_H_GAP = "\u2003" * 14
+# Horizontal legends ignore layout.legend.tracegroupgap in Plotly; light trailing thin spaces separate items when saving.
+_LEGEND_H_GAP = "\u2009" * 10  # thin space (U+2009), narrower than em space
+
+
+def _nudge_subplot_titles_down(fig, title_texts, dy=-14):
+    """Move facet subplot title annotations down (dy < 0 in px) to add space below the legend."""
+    allowed = set(title_texts)
+    for ann in fig.layout.annotations:
+        if ann.text in allowed:
+            prev = ann.yshift
+            ann.update(yshift=(0 if prev is None else prev) + dy)
+
 
 # Load data function
 @st.cache_data
@@ -1585,21 +1595,29 @@ with tab2:
         ])
         
         fig_heat.update_layout(
-            title=dict(text="Extreme Heat Days by Station (1974-2024)<br>", font=dict(size=22)),
+            title=dict(
+                text="Extreme Heat Days by Station (1974-2024)<br>",
+                font=dict(size=22),
+                pad=dict(b=20),
+            ),
             height=800,
+            margin=dict(t=132),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.01,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
             )
         )
         fig_heat.update_annotations(font_size=18)
+        _nudge_subplot_titles_down(
+            fig_heat, [dfs[s]["station_name"].iloc[0] for s in selected_stations]
+        )
         fig_heat.update_xaxes(
             showgrid=True, gridwidth=1, gridcolor='LightGray',
             title_font=dict(size=20), tickfont=dict(size=18),
@@ -1793,21 +1811,29 @@ with tab2:
         ])
         
         fig_cold.update_layout(
-            title=dict(text="Extreme Cold Days by Station (1974-2023)<br>", font=dict(size=22)),
+            title=dict(
+                text="Extreme Cold Days by Station (1974-2023)<br>",
+                font=dict(size=22),
+                pad=dict(b=20),
+            ),
             height=800,
+            margin=dict(t=132),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.01,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
             )
         )
         fig_cold.update_annotations(font_size=18)
+        _nudge_subplot_titles_down(
+            fig_cold, [dfs[s]["station_name"].iloc[0] for s in selected_stations]
+        )
         fig_cold.update_xaxes(
             showgrid=True, gridwidth=1, gridcolor='LightGray',
             title_font=dict(size=20), tickfont=dict(size=18),
@@ -2022,21 +2048,29 @@ with tab3:
         ])
         
         fig_heatwaves.update_layout(
-            title=dict(text="Heatwaves by Station (1974-2024)<br>", font=dict(size=22)),
+            title=dict(
+                text="Heatwaves by Station (1974-2024)<br>",
+                font=dict(size=22),
+                pad=dict(b=20),
+            ),
             height=800,
+            margin=dict(t=132),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.01,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
             )
         )
         fig_heatwaves.update_annotations(font_size=18)
+        _nudge_subplot_titles_down(
+            fig_heatwaves, [dfs[s]["station_name"].iloc[0] for s in selected_stations]
+        )
         fig_heatwaves.update_xaxes(
             showgrid=True, gridwidth=1, gridcolor='LightGray',
             title_font=dict(size=20), tickfont=dict(size=18),
@@ -2243,21 +2277,29 @@ with tab3:
         ])
         
         fig_coldwaves.update_layout(
-            title=dict(text="Coldwaves by Station (1974-2023)<br>", font=dict(size=22)),
+            title=dict(
+                text="Coldwaves by Station (1974-2023)<br>",
+                font=dict(size=22),
+                pad=dict(b=20),
+            ),
             height=800,
+            margin=dict(t=132),
             showlegend=True,
             template="plotly_white",
             font=dict(size=20),
             legend=dict(
                 orientation="h",
                 yanchor="bottom",
-                y=1.02,
+                y=1.01,
                 xanchor="center",
                 x=0.5,
                 font=dict(size=18),
             )
         )
         fig_coldwaves.update_annotations(font_size=18)
+        _nudge_subplot_titles_down(
+            fig_coldwaves, [dfs[s]["station_name"].iloc[0] for s in selected_stations]
+        )
         fig_coldwaves.update_xaxes(
             showgrid=True, gridwidth=1, gridcolor='LightGray',
             title_font=dict(size=20), tickfont=dict(size=18),
@@ -2567,7 +2609,7 @@ with tab4:
                             x=overlap_data['year'] - 0.15, 
                             y=overlap_data['wwa_count'],
                             mode='markers', 
-                            name='Equal Count',
+                            name='',
                             marker=dict(color='black', size=10, symbol='circle'),
                             showlegend=False,
                             legendgroup='overlap',
@@ -2590,7 +2632,10 @@ with tab4:
                 fig.update_xaxes(
                     title_text="Year" if row == n_rows else "",
                     range=[2004.5, 2024.5],
-                    dtick=2,
+                    tickmode="linear",
+                    tick0=2005,
+                    dtick=1,
+                    tickformat="d",
                     row=row, col=col
                 )
             
@@ -2605,12 +2650,11 @@ with tab4:
                     row=row, col=col
                 )
         
-            # Update layout (extra bottom margin so legend + equal-count key export cleanly)
+            # Update layout
             fig.update_layout(
                 height=350 * n_rows,
                 showlegend=True,
                 font=dict(size=20),
-                margin=dict(b=150),
                 legend=dict(
                     orientation="h",
                     yanchor="top",
@@ -2623,27 +2667,13 @@ with tab4:
                 hovermode='closest'
             )
             fig.update_annotations(font_size=18)
-            fig.update_xaxes(title_font=dict(size=20), tickfont=dict(size=18))
+            fig.update_xaxes(
+                title_font=dict(size=20),
+                tickfont=dict(size=11),
+                tickangle=0,
+                automargin=True,
+            )
             fig.update_yaxes(title_font=dict(size=20), tickfont=dict(size=18))
-            # Equal count: two colors in one Plotly legend row aren't supported; draw as figure
-            # annotations (paper coords) so PNG/SVG/HTML exports include the key.
-            _eq_paper_y = 0.055
-            _eq_paper_x = 0.5
-            fig.add_annotation(
-                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
-                xanchor="center", yanchor="bottom", text="●", showarrow=False,
-                font=dict(size=15, color="#000000"), xshift=-34,
-            )
-            fig.add_annotation(
-                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
-                xanchor="center", yanchor="bottom", text="●", showarrow=False,
-                font=dict(size=15, color="#e00000"), xshift=-22,
-            )
-            fig.add_annotation(
-                xref="paper", yref="paper", x=_eq_paper_x, y=_eq_paper_y,
-                xanchor="left", yanchor="bottom", text=" Equal count", showarrow=False,
-                font=dict(size=16, color="#444444"), xshift=-8,
-            )
         
             st.plotly_chart(fig, use_container_width=True)
         
